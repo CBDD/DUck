@@ -1,0 +1,4748 @@
+#svl
+//	io_pdb.svl		Protein Data Bank format
+//
+//  07-jul-2011 (ps) Corrected inconsistencies between leap and Amber export
+//	06-nov-2011 (kk) Use amber10.mdb to standardize hyb/ion/hintlp
+//	14-oct-2011 (ms) replaced ChainLetter with cLetter
+//	07-oct-2011 (kk) default translate_prime action * => '
+//	18-sep-2011 (kk) Use std attr if proper subset of standard atoms
+//	26-jul-2011 (kk) Protect against zero matrix in MTRIX records
+//	07-jul-2011 (kk) parse_specification_list requires MOL_ID first
+//	05-jul-2011 (kk) Adjust formal charges on metal-organic LINKs
+//	05-jul-2011 (kk) Reverted to SystemPush/Pop
+//	27-jun-2011 (kk) Append atom collections (ie ALTLOC) on read.
+//	02-jun-2011 (kk) Allow variant text in REMARK 350 "CHAINS:" line
+//	18-apr-2011 (kk) Full path for gzip; fix use_charges on read
+//	13-apr-2011 (kk) Fix read line in fread_PDB_model
+//	09-mar-2011 (kk) Force use_element for all-left-justified aname files
+//	09-mar-2011 (kk) Support multi_entry option (catenated pdb files)
+//	09-mar-2011 (kk) Force consecutive_atoms if there are duplicate atom ids
+//	24-feb-2011 (kk) Crystal contact shells
+//	08-feb-2011 (kk) Protect from false identity matrix in MTRIX records
+//	25-jan-2011 (kk) Protect against false nres in SEQRES
+//	19-jan-2011 (ah) write MOE_VERSION as XXXX.XX (2 places after .)
+//	13-jan-2011 (kk) Amberize NME, ACE
+//	07-jan-2011 (kk) Option to preserve order of atoms in file
+//	22-dec-2010 (kk) Crystal Contact sets
+//	08-dec-2010 (kk) Amberize monoatomic ions (ions94.lib)
+//	02-dec-2010 (kk) Write bOrders as repeated CONECTS
+//	29-nov-2010 (kk) fwrite_PDB writes some cards in opt
+//	26-nov-2010 (kk) Corrected Inert/active logic for variants
+//	15-nov-2010 (kk) SPRSDE/OBSLTE accomodate codes > 4 chars
+//	12-nov-2010 (kk) Relax BIOMOL card recognition
+//	04-nov-2010 (kk) Protect ApplyCTAB from hydrogen-suppressed dictionaries
+//	23-sep-2010 (kk) Protect GetLine from non-ASCII chars
+//	10-sep-2010 (kk) Turn contacts off during mol_Create etc
+//	25-aug-2010 (kg) Fixed GLH (NE2->OE2)
+//	16-aug-2010 (kk) Fixed assignment of types to empty residues
+//	06-aug-2010 (kk) Add Amber variant residues to standard table
+//	01-jul-2010 (kk) WriteStruct fixed
+//	28-apr-2010 (kk) Set Sequence Variants to Inert
+//	26-apr-2010 (kk) Fixed HXT vs Hprime in standardize atom names
+//	08-apr-2010 (kk) Strip null revdat records
+//	16-mar-2010 (kk) Stricter test for valid date in header
+//	10-mar-2010 (kk) Use first char after dot for chain letter on write
+//	10-mar-2010 (kk) Write Occupancy fixed; write symmetric connect
+//	24-feb-2010 (kk) Set BIOMT operation chain names
+//	10-feb-2010 (kk) Removed SIGUIJ etc from extension in SplitHets
+//	26-jan-2010 (kk) force_TER option
+//	26-jan-2010 (kk) Move pdb_SplitHets to fread_PDB from ReadPDB
+//	18-jan-2010 (kk) SSBOND format correction (col. 60+)
+//	18-jan-2010 (kk) Corrected GLH/ASH AMBER naming logic
+//	07-jan-2010 (kk) Give mixed case element names to AutoTypeFromPosition
+//	27-oct-2009 (kk) Check 600 Ctab for long bonds
+//	20-oct-2009 (kk) Restore RCSB autoconect default
+//	05-oct-2009 (kk) cSetName on SplitHets
+//	24-aug-2009 (kk) Only clear UID/INS on write if > 1 residue
+//	27-jul-2009 (kk) Hydrogen order; NH2+; Occ/Temp precision control
+//	11-jul-2009 (kk) Multiple/selected biomolecule support
+//	08-jul-2009 (kk) Write all conects for MOE
+//	02-jul-2009 (kk) Correct ring hydrogens PDB names; AMBER output
+//	30-jun-2009 (kk) SRC_MOE inconsistent between write/read
+//	02-jun-2009 (kk) link support in pdb_ConnectAndType
+//	02-jun-2009 (kk) trust element columns in V.3.15+
+//	07-may-2009 (kk) BIOMT bug fix
+//	16-mar-2009 (kk) Activate split hets logic in ReadPDB
+//	06-mar-2009 (kk) Improved empty res alignment & numbering logic
+//	24-feb-2009 (kk) Allow for extra H's after ctab application
+//	18-feb-2009 (kk) apply link; require equal uids+ins for micro het logic
+//	16-feb-2009 (kk) seqres collation errors fixed
+//	13-feb-2009 (kk) Split hets from protein chains
+//	21-jan-2009 (kk) Write CRYST1, HELIX & SHEET records
+//	20-jan-2009 (kk) Use TER to separate residues with identical rFullName
+//	15-jan-2009 (kk) Complete check for pH
+//	15-jan-2009 (kk) Improved slist processing
+//	15-jan-2009 (kk) v3.20 adjustments (SPLIT, DBREF1,2)
+//	15-jan-2009 (kk) Improved alt_loc processing
+//	10-oct-2008 (kk) Protect from empty file
+//	09-oct-2008 (kk) Force use_elements on MOE-written PDB files
+//	30-sep-2008 (kk) PDB v2.0, PDB v3.0 & IUPAC hydrogen naming
+//	22-sep-2008 (kk) BIOMT parsing error fixed
+//	03-sep-2008 (kk) MatchCTAB isH error fixed
+//	28-aug-2008 (kk) ApplyCTAB in pdb_ConnectAndType for cif reader
+//	07-aug-2008 (kk) HN convention removed for amide hydrogens
+//	17-jul-2008 (kk) Incorporated ah's code for applying BIOMT records
+//	23-jun-2008 (kk) UID INS write policy changed
+//	09-apr-2008 (kk) FREE R parse corrected; R VALUE added
+//	12-mar-2008 (kk) CAVEAT char num corrected
+//	26-nov-2007 (kk) ILE CD from CHARMM
+//	20-nov-2007 (kk) use aOccupancy & aSetOccupancy
+//	08-nov-2007 (kk) 600 atom names packed
+//	06-nov-2007 (kk) allowance for non-std revdat field
+//	06-nov-2007 (kk) HET fields corrected
+//	04-oct-2007 (kk) remark 2 allowances to pick up resolution
+//	25-sep-2007 (kk) std amino glu & asp fix-ups
+//	19-sep-2007 (kk) Write Version in remark 99; read remark "0"
+//	13-sep-2007 (kk) protect ExtractCTAB from "non-elements"
+//	24-aug-2007 (kk) N & UNK in AMINO/NUCLEIC tables
+//	23-aug-2007 (kk) TidySeqNum; translate saccharide atom names to * form
+//	14-aug-2007 (kk) simple wash in read
+//	16-jul-2007 (kk) explicit HIS typing; create non-match SEQRES chains
+//	12-jul-2007 (kk) get & apply ctab from REM 600
+//	19-jun-2007 (kk) Proper AutoConnect for overlapping residues
+//	24-may-2007 (kk) allow 76 char records; check EC vals
+//	18-may-2007 (kk) Strip moldata in mol_Finalize; BOND_TOL decrease
+//	24-apr-2007 (kk) guarantee undirected bondlist; update READ_DEFAULTS
+//	18-apr-2007 (kk) app uniq bondlist when finished read model
+//	17-apr-2007 (kk) pdb_GenerateImages argument bugfix
+//	12-apr-2007 (kk) val-attr pairs bug (terminating ";")
+//	29-mar-2007 (kk) dna-rna bonds are standard
+//	26-mar-2007 (kk) proper charges for nucleic acid PO4
+//	19-mar-2007 (kk) parse revdat; HEADER code field expanded to 8 chars
+//	16-mar-2007 (kk) parse hetsyn & dbref records; add ftnote
+//	15-mar-2007 (lc) add parser for the FORMUL entry line
+//	08-mar-2007 (kk) keep unit_cell_Z from CRYST1; fix res from REMARK logic
+//	27-feb-2007 (kk) only perturb res order to bring atoms together (1mts)
+//	26-feb-2007 (kk) keep all revdat
+//	08-jan-2007 (kk) collate_res on all models (eg 1f8h)
+//	19-dec-2006 (kk) no autoconnect => no autotype on std res
+//	19-dec-2006 (kk) rcsb atom names
+//	29-nov-2006 (kk) withhold waters from AutoConect
+//	24-nov-2006 (kk) atom_serial; model_num bug fixes
+//	10-nov-2006 (kk) make multi-model tags
+//	01-nov-2006 (kk) options to return raw atom data, use element col
+//	01-nov-2006 (kk) Autoconnect LP's with H's
+//	30-oct-2006 (kk) allow duplicate terminal O
+//	27-oct-2006 (kk) AutoConnect... adds to, not replaces input bonds
+//	26-oct-2006 (kk) guess a chain char to write
+//	23-oct-2006 (kk) 'LP  ' not read as Phosphorus
+//	23-oct-2006 (kk) selected atoms on write bugfix
+//	23-oct-2006 (kk) parse ANISOU etc
+//	10-oct-2006 (kk) Verbatim modres & seqadv (leave dups & non-informative)
+//	03-oct-2006 (kk) model_num vector from fread_PDB
+//	28-sep-2006 (kk) Include all PDB Record Types in read; adjusted seqadv
+//	26-sep-2006 (kk) fixed symmetry option handling
+//	22-sep-2006 (kk) fixed out-of-order problem (BX3 in 1mts.ent)
+//	08-sep-2006 (jd) Fixed ignore_hetero mask (missing not)
+//	07-sep-2006 (kk) Allow non-uniq anames if no alt loc chars
+//	31-aug-2006 (kk) Allow file to be fnum in fread_PDB
+//	31-aug-2006 (kk) Restrict H-renaming; default occ to 1.0;
+//	31-aug-2006 (kk) Restore ignore_conect etc
+//	10-may-2006 (kk) Export pdb_GenerateImages, pdb_ConnectAndType
+//	10-may-2006 (kk) Re-write to mol vectors complete
+//	07-apr-2006 (kk) Autoimport ReadPDB, WritePDB
+//	02-mar-2006 (kk) Default Histidine to HID
+//	30-jan-2006 (kk) Bond & Type mol vector
+//	17-jan-2006 (kk) Split reading header & models
+//	13-dec-2005 (kk) Bugfix: iupac->rcsb hydrogen names
+//	13-dec-2005 (kk) IUPAC option for hydrogen names
+//	30-nov-2005 (kk) Removed db_ImportPDB (dbimport.svl)
+//	28-nov-2005 (kk) all hydrogens bonded...
+//	01-nov-2005 (kk) water split bug
+//	31-oct-2005 (kk) fread_PDB gunzips *.gz,*.Z
+//	28-oct-2005 (kk) Respect element column if format valid
+//	27-oct-2005 (kk) collect contiguous waters only, rather than all
+//	19-oct-2005 (kk) activate header_only option
+//	13-sep-2005 (al) change 'PDB' to 'pdb'
+//	20-jun-2005 (pl) read deuterium
+//	20-jun-2005 (pl) use filename for header if no header or all blank
+//	13-jun-2005 (pl) re-enabled multiple model reading
+//	10-feb-2005 (kk) write_CONECT bugfix
+//	17-jan-2005 (kk) atom name format repaired
+//	03-jan-2005 (kk) handle BABEL inconsistancy
+//	29-dec-2004 (kk) correctly rotate all HNames of form H*[0-9]
+//	29-dec-2004 (kk) include hets from atom name adjustment
+//	15-sep-2004 (jd) improved bond list validation
+//	16-jul-2004 (jd) added fwrite_PDB
+//	04-may-2004 (lc) bug fix on an ReadPDB option
+//	12-apr-2004 (pl) fixed date handling on missing dates
+//	10-mar-2004 (lc) refine Ryoka's changes. fix fopen in pdb_fread
+//	11-sep-2003 (rk) PDB vs IUPAC convention for hydrogen names
+//	17-feb-2004 (jd) missing db_Close in function db_ImportPDB
+//	28-jan-2004 (pl) converted to new cell parameters stuff
+//	15-apr-2003 (kk) bugfix handling invalid dates
+//	23-jan-2003 (m2) changed symmetries: options to non_crys, all
+//	07-jan-2003 (kk) pdb field interpreting in low-level read (pdb_read)
+//	07-jan-2003 (m2) added support for hoh and hetero pdb_open panel
+//	02-dec-2002 (kk) crys_sym options for ReadPDB
+//	28-aug-2002 (kk) in GetLine account for lines < 80 chars
+//	23-apr-2002 (kk) fix aname write: 4 letter names; HN's on pep N
+//	22-mar-2002 (kk) bugfix: N's connected to bad amino res
+//	08-feb-2002 (kk) nucleic attr : enforce sp3 backbone
+//	07-feb-2002 (kk) alignment fixup; histidine match bug, HOH unbond bug
+//	06-feb-2002 (kk) increased microhet radius from 0.10 to 0.25
+//	31-jan-2002 (kk) atom occupancy written to aScalar
+//	20-jan-2002 (kk) use mol_XXX functions
+//	15-may-2001 (kk) BOND_TOL increased for auto-bonding polymer links
+//	15-may-2001 (kk) uracil fix in set_nucleic_attr
+//	15-may-2001 (kk) exclusion of out-bonded amino fix in set_amino_attr
+//	27-feb-2001 (kk) attribute fixes (part. histidine)
+//	21-feb-2001 (kk) auto-connect fixes
+//	20-feb-2001 (kk) move open_Op stuff to f_sys.svl
+//	15-feb-2001 (kk) relax test for PDB file
+//	05-jan-2001 (kk) integrated with new open system
+//	14-jul-2000 (kk) move most read logic to SVL; correct serial num for TER
+//	01-oct-1999 (kk) bugfix in fix_hydrogens; module name change (RCSB)
+//	14-jul-1999 (kk) write rUID's if not all zero; re-start at each chain
+//	09-jul-1999 (kk) fix_hydrogens ignores non-standard names
+//	09-jul-1999 (kk) bad charges bug on write
+//	09-aug-1997 (kk) created
+//
+// COPYRIGHT (C) 1997-2011 CHEMICAL COMPUTING GROUP INC.  ALL RIGHTS RESERVED.
+//
+// PERMISSION TO USE, COPY, MODIFY AND DISTRIBUTE THIS SOFTWARE IS HEREBY
+// GRANTED PROVIDED THAT: (1) UNMODIFIED OR FUNCTIONALLY EQUIVALENT CODE
+// DERIVED FROM THIS SOFTWARE MUST CONTAIN THIS NOTICE; (2) ALL CODE DERIVED
+// FROM THIS SOFTWARE MUST ACKNOWLEDGE THE AUTHOR(S) AND INSTITUTION(S); (3)
+// THE NAMES OF THE AUTHOR(S) AND INSTITUTION(S) NOT BE USED IN ADVERTISING
+// OR PUBLICITY PERTAINING TO THE DISTRIBUTION OF THE SOFTWARE WITHOUT
+// SPECIFIC, WRITTEN PRIOR PERMISSION; (4) ALL CODE DERIVED FROM THIS SOFTWARE
+// BE EXECUTED WITH THE MOLECULAR OPERATING ENVIRONMENT (MOE) LICENSED FROM
+// CHEMICAL COMPUTING GROUP INC.
+//
+// CHEMICAL COMPUTING GROUP INC. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+// SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+// AND IN NO EVENT SHALL CHEMICAL COMPUTING GROUP INC. BE LIABLE FOR ANY
+// SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+// RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+// CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+#set title	'MyPDB File I/O'
+#set class	'MOE:myfile-io'
+#set version	'2012.08'
+
+// TBD : option to re-name atoms on read - all or H only
+// TBD : Use new oReparent when ready
+// TBD : Replace pro_AtomCheck; fix simple wash; 5' to 3'
+// TBD : TER-less files -> attempt to split chains
+// TBD : options; split_hets etc
+// TBD : trusting SRC_MOE/checksum on header END/PDB
+// TBD : document use_link/connect policy (1pph, 2oun)
+// TBD : option to choose first alt loc per res regardless of occ or value.
+
+function pro_AtomCheck, pro_PeptideFlags;
+function AutoConnectFromPosition, AutoTypeFromPosition;
+function crys_StandardShortGroup, crys_GetGroupIndex;
+function AtomSurfaceArea, aSlogP, aIdealVSA;
+function Write_Prompt;
+
+const SRC_MOE_WRITE = ' MOE v{n:.2f} (Chemical Computing Group Inc.) {}';
+const SRC_MOE_MATCH = ' MOE * (Chemical Computing Group Inc.)*';
+const SRC_PDB_REMED = '*COMPLIES WITH FORMAT V. 3.*';
+
+const PDB_WRITE_DEFAULTS = [
+    use_chain_id:   1,		// try to extract chain id from cname
+    cryst1:	    0,		// write the CRYST1 record
+    hnames:	    'PDB v3.0', // or IUPAC or "old" PDB
+    amber:	    0,		// "Amberize"
+    atom_prop:	    [],		// B-factor data
+    occupancy:	    [],		// occupancy data
+    force_TER:	    0		// write chains verbatim with TER recs
+];
+
+const FREAD_PDB_DEFAULTS = [
+    multi_model:	    0,  // if true, read all models in NMR (eg) files
+    collate_res:	    1,  // if true, align SEQRES to ATOM res
+    ignore_conect:	    1,  // if true, do not apply CONECT records
+    auto_connect:	    1,  // if true, apply AutoConnect
+    use_link:		    0,	// if true, apply & require links for inter-res
+    ignore_hoh:		    0,
+    ignore_hetero:	    0,
+    save_variants:	    1,
+    alt_loc:		    0,
+    split_hets:		    0,
+    use_element:	    0,  // if true, apply element column of PDB file
+    chain_tag:		    'auto',
+    gen_symm:		    0,  // if true, apply symmetries from MTRIXn records
+    gen_biomt:		    0,  // if non-zero, create specified biomol
+    biomol:		    0,
+    crystal_contacts:	    0,
+    crystal_contact_rad:    4.5,
+    translate_primes:	    2,  // 0:none, 1:'->*,'OP1'->O1P', 2: vice versa
+    consecutive_atoms:	    0,  // If on, residue atoms must be contiguous
+    preserve_order:	    0,
+    atom_data:		    0
+];
+
+const READ_PDB_DEFAULTS = [
+    split_hets:		    1,  // Remove trailing hets from protein chains.
+    install_cryst:	    0,  // Set space group & cell dimensions.
+    use_charges:	    0,
+    multi_entry:	    1
+];
+
+//===================== Extensions, Utilities & Brevity =======================
+
+local function oAppendSet [setname, atoms]
+    oSetCollection [setname, uniq cat [atoms, oGetCollection setname]];
+endfunction
+
+local function mean v = invz length v * add v;
+
+local function trim_ws s
+    local m = not isspace s, p = pscan m;
+    return (s | m or (rotl m and ltE [0, p, last p]));
+endfunction
+
+local function trim_trailing_ws s
+    local m = not isspace s, p = pscan m;
+    return (s | m or p < last p);
+endfunction
+
+local function apt_sread v = tr app first apt sread v;
+
+const MOL_RES_STD  = MOL_RES_EXTEND;
+const MOL_RES_IDX  = MOL_RES_EXTEND+1;
+const MOL_RES_ALOC = MOL_RES_EXTEND+2;
+
+const MOL_ATOM_ORDER	= MOL_ATOM_EXTEND;
+const MOL_ATOM_ALOC	= MOL_ATOM_EXTEND+1;
+const MOL_ATOM_OCC	= MOL_ATOM_EXTEND+2;
+const MOL_ATOM_ACTIVE	= MOL_ATOM_EXTEND+3;
+const MOL_ATOM_CTABH    = MOL_ATOM_EXTEND+4;
+const MOL_ATOM_SERIAL	= MOL_ATOM_EXTEND+5;
+const MOL_ATOM_TEMP	= MOL_ATOM_EXTEND+6;
+const MOL_ATOM_ELCOL	= MOL_ATOM_EXTEND+7;
+const MOL_ATOM_QCOL	= MOL_ATOM_EXTEND+8;
+const MOL_ATOM_REC	= MOL_ATOM_EXTEND+9;
+const MOL_ATOM_LITERAL	= MOL_ATOM_EXTEND+10;
+
+local function mol_DropExtend mol = apt keep [mol, app length mol_Extract[]];
+
+local function mol_cName mol = mol(2)(MOL_CHAIN_NAME);
+local function mol_cTag  mol = mol(2)(MOL_CHAIN_TAG);
+local function mol_cHdr  mol = mol(2)(MOL_CHAIN_HEADER);
+local function mol_nRes  mol = mol(2)(MOL_CHAIN_NRES);
+
+local function mol_rName  mol = mol(3)(MOL_RES_NAME);
+local function mol_rUID   mol = mol(3)(MOL_RES_UID);
+local function mol_rINS   mol = mol(3)(MOL_RES_INS);
+local function mol_rType  mol = mol(3)(MOL_RES_TYPE);
+local function mol_nAtoms mol = mol(3)(MOL_RES_NATOMS);
+local function mol_rStd   mol = mol(3)(MOL_RES_STD);
+
+local function mol_rSetStd [mol, v] = poke [mol, [3, MOL_RES_STD], v];
+
+local function mol_aBck mol = mol(4)(MOL_ATOM_BACKBONE);
+local function mol_aIon mol = mol(4)(MOL_ATOM_ION);
+local function mol_aHLP mol = mol(4)(MOL_ATOM_HINTLP);
+local function mol_aHyb mol = mol(4)(MOL_ATOM_GEOM);
+local function mol_aBnd mol = mol(4)(MOL_ATOM_BONDS);
+local function mol_aEle mol = mol(4)(MOL_ATOM_EL);
+
+local function mol_aRad mol = el_COV_Radius mol_aEle mol;
+local function mol_aLht mol = 1 >= el_Protons mol_aEle mol;
+
+local function mol_aNumH mol = app add apt get [[mol_aLht mol], mol_aBnd mol];
+
+local function mol_aSetBnd [mol, B] = poke [mol, [4, MOL_ATOM_BONDS], B];
+
+local function mol_SymmetrizeBondlist mol
+    local B = graph_edges mol_aBnd mol;
+    return mol_aSetBnd [ mol, graph_uneighbors cat [B, mol_aCount mol]];
+endfunction
+
+local function str_R2A [mol, v] = stretch [v, mol_nAtoms mol];
+local function str_C2A [mol, v] = str_R2A [mol, stretch [v, mol_nRes mol]];
+local function mol_aRnum mol = str_R2A [mol, igen mol_rCount mol];
+local function mol_aCnum mol = str_C2A [mol, igen mol_cCount mol];
+
+// ResName : rName_rUID_rINS; AtomName  : Resname_aName
+
+local function res_name [r, u, i] = apt twrite ['{}_{}_{}', r, u, i];
+const RES_NAME = [MOL_RES_NAME, MOL_RES_UID, MOL_RES_INS];
+local function mol_rFullName mol = res_name mol(3)[RES_NAME];
+local function rFullName r = res_name [rName r, rUID r, rINS r];
+
+local function mol_aFullName mol = cat tok_cat [
+    mol_rFullName mol, '_', split [mol_aName mol, mol_nAtoms mol]
+];
+
+local function aUnitedElement atoms = toupper el_UnitedElement aElement atoms;
+
+local function aAltLoc A
+    local alt_char = findmatch ['PDB_ALTLOC_[A-Z,a-z,0-9]', oCollections[]];
+    local alt_atoms = app oGetCollection alt_char;
+    alt_char = stretch [app last app string alt_char, app length alt_atoms];
+    local x = indexof [A, cat alt_atoms];
+
+    return unpack [alt_char[pack x], [" "], x];
+endfunction
+
+local function ele2hyb ele
+    local m = indexof toupper [ele, ELEMENT_SYM];
+    return unpack [el_DefaultGeometry (ele | m), 'sp3', m];
+endfunction
+
+local function is_el ele = indexof toupper [ele, cat ['D', ELEMENT_SYM]];
+
+local function safe_elements ele
+    ele | ele == 'D' = 'H';
+    ele | not is_el ele = 'LP';
+
+    const T = ELEMENT_SYM;
+    local x = indexof [ele, toupper T];
+    ele | x = T[pack x];
+
+    return ele;
+endfunction
+
+//====== REMARK 600 - get ion/hyb/hintlp & bonds from CTAB structure ==========
+
+local function make_ctab v
+    v = v | app length app trim_ws v;
+    local [rname, s] = apt_sread [v, '{t:}{c:*}'];
+    local [natoms, nbonds] = first sread [s(1), '{t:X}{n:}{n:}'];
+
+    if (natoms < 1) or (natoms + nbonds + 1 <> length v) then
+	return [];  // nothing or inconsistent
+    endif;
+
+    local [A, B] = split [dropfirst s, [natoms, nbonds]];
+
+    const ATOM_INFO = '{c:*4}{c:X}{c:*4}{c:X}{t:2}{c:X}{n:3}{c:X}{c:}{c:}';
+    A = apt_sread [A, ATOM_INFO];
+
+    local atom_info, bond_info;
+
+    atom_info(CTAB_A_SYM)    = safe_elements A(3);  // element
+    atom_info(CTAB_A_CHARGE) = A(4);		    // formal charge
+    atom_info(CTAB_A_STEREO) = CTAB_AS_OTHER;	    // unknown(?)
+    atom_info(CTAB_A_HCOUNT) = -1;		    // assume full valence mol
+
+    atom_info[[CTAB_A_APO, CTAB_A_RGROUP]]		 = -1;
+    atom_info[[CTAB_A_X, CTAB_A_Y, CTAB_A_Z]]		 = 0;
+    atom_info[[CTAB_A_MASS, CTAB_A_RADICAL, CTAB_A_NUM]] = 0;
+
+    local Aname = app token A(1);
+
+    if nbonds then
+	const BOND_INFO = '{c:*4}{c:X}{c:*4}{c:X}{t:4}{c:X}{c:}';
+	B = apt_sread [B, BOND_INFO];
+	B(3) = indexof [B(3), ['SING','DOUB','TRIP','QUAD','AROM']];
+	B(3) = mput [B(3), B(3) == 5, CTAB_BT_ARO]; // 1-4 are ok (ctabfcn.htm)
+	B = B || [B(3)];
+
+	bond_info(CTAB_B_FROM)   = indexof [app token B(1), Aname];
+	bond_info(CTAB_B_TO)     = indexof [app token B(2), Aname];
+	bond_info(CTAB_B_TYPE)   = B(3);
+	bond_info(CTAB_B_STEREO) = 0;
+    endif
+
+    local [mol] = mol_ExtractFromCTAB [atom_info, bond_info];
+
+    return tag [rname(1), [[
+	aname: [
+	    Aname,
+	    app token app trim_ws A(2),
+	    app token app trim_ws A(1)
+	],
+	ion:	mol_aIon mol,
+	hyb:	mol_aHyb mol,
+	hlp:	mol_aHLP mol,
+	bonds:  mol_aBnd mol,
+	ele:	mol_aEle mol,
+	Hdeg:	mol_aNumH mol
+    ]]];
+endfunction
+
+local function extract_600 s
+    local m = 'DICTIONARY' == app token apt get [s, [5 + igen 10]];
+    if allfalse m then return []; endif;
+    local n = mtoc m;
+    s = split [s, n] | app first split [m, n];
+    return tagcat app make_ctab s;
+endfunction
+
+//======== Reading & writing RCSB title records ===============================
+
+// CHAIN, SYNONYM and EC (in COMPND) along with KEYWDS, EXPDTA, MDLTYP
+// and AUTHOR are lists. EXPDTA  and MDLTYPE are semi-colon separated,
+// the others are comma-separated. The AUTHOR list is specifically to
+// be separated by commas followed by a non-space. Any commas, semi-colons
+// or colons in a list item are supposed to be escaped.
+// In practice, escape characters are hardly ever seen in the PDB, and there
+// are almost two thousand semi-colon separated SYNONYM or KEYWD lists in
+// the PDB (c 2010.12). In lists other than AUTHOR, the intended separators
+// are usually - but not always - followed by a space.
+// NOTE: mmcif files contain verbatim data for lists
+
+local function nested v
+    local b1 = pscan (v == "(");    // !!! 3e6p "["
+    if not anytrue last b1 then return zero v; endif;
+    local b2 = reverse pscan reverse (v == ")");
+    return b1 and (b2 > b1);
+endfunction
+
+// Split on any valid split character; paste together tokens separated
+// by commas that terminate with digit...
+
+local function split_list [s, split_char]
+    local x = indexof [s, split_char] and not rotrpoke [s == "\\", 1];
+    x | nested s = 0;
+    local d = isdigit s;
+    x | x == 1 and rotlpoke [d,0] and rotrpoke [d,0] = 0;
+    x = append [x, 1];
+    s = app trim_ws app droplast split [cat [s, " "], mtoc rotr x];
+    s = s || s <> "\\";
+    return app token (s | app length s);
+endfunction
+
+local function add_escapes [s, escapes]
+    return splice [s, x_pack indexof [s, escapes], 0, "\\"];
+endfunction
+
+local function escape_all s    = add_escapes [s, ":,;"];
+local function escape_colons s = add_escapes [s, ":"];
+
+local function wrap [s, len]
+    local m = isspace s, n = mtoc m;
+    local w = split [s, n = poke [n, 1, inc first n]];
+
+    if anytrue (m = n > len) then
+	w = splice [w, inc x_pack m, -1, apt split [w | m, len]];
+    endif
+
+    local i, j = 1;
+
+    s = [];
+    for i = 1, length w loop
+	if (len > (length s(j) + length w(i) - isspace last w(i))) then
+	    s(j) = cat [s(j), w(i)];
+	else
+	    s(j = inc j) = w(i);
+	endif
+    endloop
+    return app trim_trailing_ws s;
+endfunction
+
+local function unwrap v
+    v = app cat v;
+    v = trim_ws cat apt cat [" ", v | app length v];
+    local m1 = v == "-", m2 = isspace v;
+    local m = m2 and rot [m1, 1] and not rot [m2, 2];
+    return (v | not m);
+endfunction
+
+local function write_string [fkey, attr, s]
+    s = app token wrap [s, 69];
+    fwrite [fkey, '{t:-10}{t:-70}\n', attr, first s];
+    s = dropfirst s;
+    apt fwrite [fkey, '{t:-6} {n:3} {t:-69}\n', attr, inc x_id s, s];
+endfunction
+
+local function write_list [fkey, data, attr, split_char]
+    local s = app token app escape_all app string data.(attr);
+    s = drop [cat apt swrite ['{}{} ', s, split_char], -2];
+    write_string [fkey, toupper attr, s];
+endfunction
+
+local function strip_escapes v
+    local m = "\\" == v and rotlpoke [indexof [v, ";,:"], 0];
+    return trim_ws (v | not m);
+endfunction
+
+const LIST_ITEMS = ['CHAIN','EC','SYNONYM'];
+
+local function write_specification_list [fkey, data, attr]
+    if isflat data then return []; endif;
+    if isnull (data = data.(attr)) then return []; endif;
+
+    attr = toupper attr;
+    local i, j = 0, k;
+
+    local [T, V] = untag data;
+    for i = 1, length T loop
+	local [t, v] = untag V(i);
+	if isnull v then continue; endif;
+
+	local s;
+	if (j = inc j) > 1 then
+	    s = twrite ['{t:-6} {n:3} MOL_ID: {};', attr, j, T(i)];
+	else
+	    s = twrite ['{t:-6}    MOL_ID: {};', attr, T(i)];
+	endif
+
+	fwrite [fkey, '{t:-80}\n', s];
+
+	t = toupper t;
+	for k = 1, length v loop
+	    s = app string v(k);
+	    if indexof [t(k), LIST_ITEMS] then
+		s = app escape_all s;
+	    else
+		s = app escape_colons s;
+	    endif
+	    s = drop [cat apt swrite ['{}, ', app token s], -2];
+	    s = app token wrap [swrite ['{}: {};', t(k), s], 69];
+	    apt fwrite [fkey, '{t:6} {n:3} {t:-69}\n', attr, j + x_id s, s];
+	    j = j + length s;
+	endloop
+    endloop
+endfunction
+
+local function parse_mol_list v
+    v = app string v;
+    local m = ":" == v and not apt rotrpoke [v == "\\", 1];
+    local x = apt indexof [1, m or (isspace v and not app m_first v)];
+    local s = apt peek [v|x, pack x];
+    if length s then
+	x | x = pack x * not isspace s;
+    endif
+
+    local attr = app token app trim_ws apt keep [v | x, dec pack x];
+
+	// "When necessary to fully describe hybrid molecules, tokens may"
+	// "appear more than once for a given MOL_ID."
+	// There must be FRAGMENT records then ... so, if there are multiple
+	// FRAGMENTS then ...
+
+    x | x = (m = m_uniq attr) * pack x;	// ** See 3e6p
+    attr = attr | m;
+
+    v | x = apt drop [v | x, inc pack x];
+    v = app unwrap split [v, mtoc x];
+    m = apt eqL [";", app last v];
+    v | m = app droplast (v | m);
+
+    if (x = indexof ['CHAIN', attr]) then
+	v(x) = split_list [v(x), ",;"];
+    endif
+    if (x = indexof ['EC', attr]) then
+	v(x) = split_list [v(x), ",;"];
+    endif
+    if (x = indexof ['SYNONYM', attr]) then
+	v(x) = split_list [v(x), ",;"];
+    endif
+
+    m = m_diff [attr, LIST_ITEMS];
+    v | m = app token app strip_escapes (v | m);
+
+    return tag ([attr, v] || [app anytrue v]);
+endfunction
+
+local function parse_specification_list [data, record_type];
+    local v = app token app first data.(record_type);
+    local m = m_findmatch ['*MOL_ID: [1-9]*', v];
+    if not anytrue first m then
+	v = droplast cat apt cat [app string v, " "];	// !!! unwrapping !!!
+	return strip_escapes v;
+    endif;
+
+    local T = totok app first apt sread [app string (v|m), '{t:X}{n:}'];
+    v = app dropfirst split [v, mtoc m];
+    v = app parse_mol_list v;
+
+    return tag [T | app length v, v | app length v];
+endfunction
+
+const MONTHS = [
+    'JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'
+];
+
+local function date_to_DMY date
+    local [Y,M,D] = fieldsplit [string date, "-"];
+    if not leE [1, M = atoi token M, 12] then return ''; endif;
+    return token cat [D, "-", string MONTHS(M), "-", keep [Y,-2]];
+endfunction
+
+local function date_to_YMD date
+    date = trim_ws cat date;
+    if isnull date then return []; endif;
+
+    local [D,M,Y] = fieldsplit [date, "-_ "];
+
+    if anyfalse app length [D,M,Y] then return []; endif;
+    if anyfalse isdigit [D,Y] then return []; endif;
+    if not (M = indexof [token toupper M, MONTHS]) then return []; endif;
+
+    [Y,D] = atoi app token [Y,D];
+    if Y < 100 then
+	Y = Y + select [1900, 2000, Y >= 72];	    // 1SBT 08-NOV-72
+    endif
+
+    date = swrite ['{n:4}-{n:2}-{n:2}', Y, M, D];
+    date | date == " " = "0";
+
+    return token date;
+endfunction
+
+// A formul string has the form [ CBX:"2(C1 H1 O2)   ", MG:"2(MG1 ++)   "]
+// parse_formul converts a formula string into a formula vector. Only contents
+// inside the brackets are considered. Charges are also include in the output.
+// e.g. "2(C6 H12 O6)" =>[C:6, H:12, O:6], "MG1 ++" => [Mg:1, +:2].
+
+local function parse_formulas formulas
+    local [names, formula_str] = untag formulas;
+    local formula_vec =[];
+
+    local i;
+    for i = 1, length formula_str loop
+	formula_str(i) = trim_ws formula_str(i);
+	local fstr = formula_str(i);
+
+	    // Keep only the content inside the brackets
+
+	local idx = indicesof ["()", fstr];
+	if app length idx === [1,1] then
+	    fstr = drop [keep [fstr, idx(2)-1], idx(1)];
+	elseif not (idx === [[],[]]) then
+	    return [];		// unhealthy brackets	(too harsh!)
+	endif
+
+	local s, v = [];
+	for s in fieldsplit [fstr, " "] loop
+	    if indexof ["+", s] then
+		if last s == "." then s = droplast s; endif
+		if alltrue (s=="+") then
+		    v.'+' = length s;
+		else
+		    v.'+' = atoi token s;
+		endif
+	    elseif indexof ["-", s] then
+		if last s == "." then s = droplast s; endif
+		if alltrue (s=="-") then
+		    v.'-' = length s;
+		else
+		    v.'-' = abs atoi token s;
+		endif
+	    elseif isnull s(2) then
+		v.(token s(1)) = 1;
+	    elseif isalpha s(2) then
+		v.(twrite ['{}{}',s(1),tolower s(2)]) =
+		   max [1, atoi token drop [s,2]]
+		;
+	    else
+		v.(token s(1)) = atoi token drop [s,1];
+	    endif
+	endloop
+	formula_vec(i) = v;
+    endloop
+
+    return [names, app token formula_str, formula_vec];
+endfunction
+
+//=============== fread_PDB_header ============================================
+
+// NOTE: In the RCSB data as of 2007-05-24 there are many entries that violate
+// PDB format by extending lengths of some records beyond their documented
+// values. REMARK, MODRES, SEQADV & COMPND are the most common offenders.
+// To handle these, we read to the 80th column unless the HEADER line tells us
+// that the pdb code is written into cols 73+.
+// SSBOND & LINK are officially 78 chars long.
+// CAVEAT is officially 70 chars long.
+
+const PDB_FMT = untag [
+    HEADER: '{c:*10X}{c:*40}{c:*12}{c:*8}{c:*2X}{t:4}', // len: date 12, ID 8
+    USER  : '{c:*10X}{c:*}',	// USER gets whole line
+    OBSLTE: '{c:*11X}{c:*9}{c:*11X}{t:*}',
+    CAVEAT: '{c:*15X}{c:*61}',	// document says 70.
+    TITLE : '{c:*10X}{c:*70}',	// switched to 80 chars in fmt 3.20
+    SPLIT : '{c:*11X}{t:*}',
+    COMPND: '{c:*10X}{c:*70}',	// attr-value pairs
+    SOURCE: '{c:*10X}{c:*70}',	// attr-value pairs
+    KEYWDS: '{c:*10X}{c:*70}',	// comma-separated list
+    EXPDTA: '{c:*10X}{c:*70}',	// semi-colon separated list
+    NUMMDL: '{c:*10X}{n:4}',
+    MDLTYP: '{c:*10X}{c:*70}',	// semi-colon separated list
+    AUTHOR: '{c:*10X}{c:*70}',	// comma-separated list
+    REVDAT: '{c:*7X}{n:3}{c:*2}{c:*10}{c:X}{c:*5}{c:*3X}{n:1}{c:*7X}'
+	    '{t:6}{c:X}{t:6}{c:X}{t:6}{c:X}{t:6}', // continuation as 2-chars
+    SPRSDE: '{c:*11X}{c:*9}{c:*11X}{t:*}',
+    JRNL  : '{c:*10X}{c:*66}',
+    REMARK: '{c:*6X}{c:*}',	// parse digit later
+    FTNOTE: '{c:*6X}{n:4}{c:*66}',
+    DBREF : '{c:*6X}{c:X}{t:4}{c:X}{c:}{c:X}{n:4}{c:}{c:X}{n:4}{c:}{c:X}'
+	    '{t:6}{c:X}{t:8}{c:X}{t:12}{c:X}{n:5}{c:}{c:X}{n:5}{c:}',
+    DBREF1: '{c:*6X}{c:X}{t:4}{c:X}{c:}{c:X}{n:4}{c:}{c:X}{n:4}{c:}{c:X}'
+	    '{t:6}{c:*15X}{t:20}',
+    DBREF2: '{c:*18X}{t:22}{c:*4X}{n:13}{c:}{n:13}{c:}',
+    SEQADV: '{c:*12X}{t:3}{c:X}{c:}{c:X}{n:4}{c:}{c:X}{t:4}{c:X}{t:9}'
+	    '{c:X}{t:3}{c:X}{n:5}{c:X}{c:*27}',
+    SEQRES: '{c:*6X}{n:5}{c:1}{n:5}{c:X}{t:4*13}',
+    MODRES: '{c:*12X}{t:3}{c:X}{c:}{c:X}{n:4}{c:}{c:X}{t:3}{c:*47}',
+    HET   : '{c:*6X}{c:X}{t:3}{c:*2X}{c:}{n:4}{c:}{c:*2X}{n:5}{c:*5X}{c:*40}',
+    HETNAM: '{c:*6X}{c:*2X}{c:*2X}{c:X}{t:3}{c:X}{c:*58}',
+    HETSYN: '{c:*6X}{c:*2X}{c:*2X}{c:X}{t:3}{c:X}{c:*58}',
+    FORMUL: '{c:*6X}{c:*6X}{t:3}{c:*4X}{c:*51}',
+    HELIX : '{c:*10X}{c:*66}',	// 72-76 is officially length of helix
+    SHEET : '{c:*10X}{c:*60}',
+    TURN  : '{c:*10X}{c:*60}',
+    SSBOND: '{c:*7X}{n:3}{c:X}'
+	    '{t:3}{c:X}{c:1}{c:X}{n:4}{c:1}{c:*3X}'
+	    '{t:3}{c:X}{c:1}{c:X}{n:4}{c:1}{c:*23X}'
+	    '{t:6}{c:X}{t:6}{c:X}{n:5}',
+    LINK  : '{c:*12X}'
+	    '{t:4}{c:}{t:3}{c:X}{c:}{n:4}{c:}{c:*15X}'
+	    '{t:4}{c:}{t:3}{c:X}{c:}{n:4}{c:}'
+	    '{c:*2X}{t:6}{c:X}{t:6}{c:X}{n:5}',
+    HYDBND: '{c:*10X}{c:*62}',	//  undocumented, but still found in archive
+    SLTBRG: '{c:*10X}{c:*62}',	//  ''
+    CISPEP: '{c:*10X}{c:*60}',
+    SITE  : '{c:*10X}{c:*60}',
+    CRYST1: '{c:*6X}{c:*66}',
+    ORIGX1: '{c:*10X}{c:*60}',
+    ORIGX2: '{c:*10X}{c:*60}',
+    ORIGX3: '{c:*10X}{c:*60}',
+    SCALE1: '{c:*6X}{c:*4X}{n:10}{n:10}{n:10}{c:*5X}{n:10}',
+    SCALE2: '{c:*6X}{c:*4X}{n:10}{n:10}{n:10}{c:*5X}{n:10}',
+    SCALE3: '{c:*6X}{c:*4X}{n:10}{n:10}{n:10}{c:*5X}{n:10}',
+    MTRIX1: '{c:*6X}{c:X}{n:3}{n:10}{n:10}{n:10}{c:*5X}{n:10}{c:*4X}{c:1}',
+    MTRIX2: '{c:*6X}{c:X}{n:3}{n:10}{n:10}{n:10}{c:*5X}{n:10}{c:*4X}{c:1}',
+    MTRIX3: '{c:*6X}{c:X}{n:3}{n:10}{n:10}{n:10}{c:*5X}{n:10}{c:*4X}{c:1}'
+];
+
+const TITLE_RECS = first PDB_FMT;
+const ATOM_RECS  = [
+    'MODEL',
+    'ATOM', 'HETATM', 'SIGATM', 'ANISOU', 'SIGUIJ', 'TER',
+    'ENDMDL',
+    'CONECT'
+];
+const PDB_RECS = cat [TITLE_RECS, ATOM_RECS];
+
+global function myfread_PDB_header [file, first_line]
+    local i,x,m,n,v;
+
+    local pdb, L, R, pdb_code;
+    local fnum = file;
+
+    if type file == 'tok' then
+	fnum = fopenr file;
+    endif
+
+    local fmts = PDB_FMT(2);
+    fmts = cat [fmts, rep ['{c:*}', length PDB_RECS - length fmts]];
+
+    // ================ Line reader & parser ==================================
+
+    function GetLine []
+	loop
+	    if length first_line then
+		L = first_line; first_line = [];
+	    else
+		L = freadb [fnum, 'line', 1];
+	    endif
+	    if isnull L then return 0; endif;	    // End of file
+	    R = first sread [keep [L = first L, 6], '{t:}'];
+	    if R == 'END' then return 0; endif;	    // End of entry
+	until (i = indexof [R, PDB_RECS]) endloop
+
+	if (n = length L) < 80 then
+	    L = cat [L, rep [" ", 80 - n]];
+	elseif length pdb_code then
+	    const atom_idx = 72 + igen 4;
+	    L[atom_idx] = " ";			    // see NOTE above
+	endif;
+	L | not (isprint L or isspace L) = "?";	    // !!! sread is broken
+	L = first sread [L, fmts(i)];
+	return 1;
+    endfunction
+
+    // ====== Read the TITLE records - stop at the coordinate section ========
+
+    while GetLine []
+    while not indexof [R, ATOM_RECS]
+    loop
+	if R == 'HEADER' then	// first instance only
+	    if isnull pdb.(R) then
+		pdb.HEADER = droplast L;
+		pdb_code = last L;
+		if pdb_code == '   ' or pdb_code <> token keep [L(3), 4] then
+		    pdb_code = [];
+		endif
+	    endif
+	elseif indexof [R, TITLE_RECS] then
+	    pdb.(R) = append [pdb.(R), L];
+	endif
+	R = [];
+    endloop
+
+    if type file == 'tok' then
+	fclose fnum;
+    endif
+
+    // ======== Finished reading; now clean-up record data ===================
+
+    pdb = untag pdb;
+    pdb = tag [tolower first pdb, last pdb];
+
+    if length R then
+	pdb.first_line = L;
+    else
+	L = [];
+    endif
+
+    pdb.date   = date_to_YMD pdb.header(2);
+    pdb.code   = trim_ws pdb.header(3);
+    pdb.header = trim_ws pdb.header(1);
+    pdb.title  = unwrap app first pdb.title;
+
+    if length pdb.split then pdb.split = cat app cat pdb.split; endif
+
+    pdb.compnd = parse_specification_list [pdb, 'compnd'];
+    pdb.source = parse_specification_list [pdb, 'source'];
+
+    pdb.keywds = split_list [unwrap app first pdb.keywds, ",;"];
+    pdb.expdta = split_list [unwrap app first pdb.expdta, ";,"];
+    pdb.mdltyp = split_list [unwrap app first pdb.mdltyp, ";,"];
+
+    if length pdb.author then
+	v = unwrap app first pdb.author;
+	pdb.author = app token app trim_ws fieldsplit [v, ","];
+    endif
+
+	// REVDAT
+
+    if length pdb.revdat then
+	local revdat   = apt keep [pdb.revdat, 5];
+	local revfield = apt drop [pdb.revdat, 5];
+
+	revfield = revfield || revfield <> '';
+	revdat   = tr revdat;
+
+	if (revdat(3)(1)(2) == "-") then    // no continuation lines
+	    revdat(3) = apt cat revdat[[2,3]];
+	    m = rep [1, l_length revdat];
+	else
+	    m = not atoi app token revdat(2);
+	endif
+	revdat = revdat || [m];
+	revdat(3) = app date_to_YMD revdat(3);
+	revdat(6) = app cat split [revfield, mtoc m];
+	revdat = apt get [revdat[[1,3,4,5,6]], [x_sort revdat(1)]];
+	revdat = revdat || [app anytrue revdat(2)];
+	if l_length revdat then
+	    pdb.revdat = apt get [revdat, [x_sort revdat(2)]];
+	else
+	    pdb.revdat = [];
+	endif
+    endif
+
+	// OBSLTE, SPRSDE
+
+    function group_rec_management rec_man
+	if isnull rec_man then return []; endif;
+	local _date = app date_to_YMD app first rec_man;
+	local _codes = app cat app last rec_man;
+	m = _date <> '';
+	return tag [_date | m, app cat split [_codes, mtoc m]];
+    endfunction
+
+    pdb.obslte = group_rec_management pdb.obslte;
+    pdb.sprsde = group_rec_management pdb.sprsde;
+
+	// From the REMARK records extract the resolution, R Free, R value,
+	// mean B, refinement program, pH & format compliance statement.
+
+    function extract_remarks s
+	v = apt keep [s, 4];
+	m = app alltrue (isdigit v or isspace v);
+	v = tr app first apt sread [s | m, '{n:4}{c:*}'];
+	s = s | not m;
+	[x,m] = sam v(1);
+	v = tag [totok v(1)[x|m], split [v(2)[x], mtoc m]];
+	if length s then v.remark = s; endif
+	return v;
+    endfunction
+
+    pdb.remark = extract_remarks app first pdb.remark;
+
+	// REMARK 2: Resolution
+
+    v = app string findmatch [' RESOLUTION.*', app token pdb.remark.'2'];
+    x = apt indexof [1, isdigit v];
+    if anytrue x then
+	pdb.res = first sread [drop [(v|x)(1), dec (pack x)(1)], '{n:}'];
+    endif;
+
+	// REMARK 3: Refinement details - R free/value; mean B; program
+
+    function extract_remark_value [rem_text, ref_pattern]
+	local rf = string first findmatch [ref_pattern, rem_text];
+	if isnull rf then return []; endif;
+	rf = token trim_ws drop [rf, indexof [":", rf]];
+	if rf == 'NULL' then rf = []; endif;
+	return rf;
+    endfunction
+
+    v = app token app trim_ws pdb.remark.'3';
+    pdb.free_R = pdb.R_free = tonum extract_remark_value [v, [
+	'FREE R VALUE :*',		    // Refinment
+	'FREE R VALUE (NO CUTOFF) :*'	    // All data
+    ]];
+    pdb.R_value = tonum extract_remark_value [v, [
+	'R VALUE (WORKING SET) :*',
+	'R VALUE (WORKING SET, NO CUTOFF) :*'
+    ]];
+    pdb.mean_B = tonum extract_remark_value [
+	v, 'MEAN B * (OVERALL, A\*\*:*'
+    ];
+    pdb.program = extract_remark_value [v, 'PROGRAM *:*'];
+
+    const EXP_DETAILS_REMARKS = ['200','210','230','240','245','265'];
+    v = app token cat tagget [pdb.remark, EXP_DETAILS_REMARKS];
+    pdb.pH = tonum extract_remark_value [v, '* PH *:*'];
+
+    v = app token pdb.remark.'4';
+    pdb.format = first findmatch [ '*COMPLIES WITH FORMAT V.*', v];
+    if length pdb.format then
+	pdb.format = trim_ws string pdb.format;
+    endif
+
+	// Get het dictionary CTAB items from REMARK 600.
+
+    pdb.ctab = extract_600 pdb.remark.'600';
+
+	// DBREF, DBREF1 & DBREF2
+
+    if length pdb.dbref1 and length pdb.dbref1 == length pdb.dbref2 then
+	local dbref = apt cat [pdb.dbref1, pdb.dbref2];
+	if eqL app length dbref then
+	    dbref = tr dbref;
+	    dbref[[8,9]] = dbref[[9,8]];    // Thanks a lot.
+	    pdb.dbref = cat [pdb.dbref, tr dbref];
+	endif
+    endif
+    if length pdb.dbref and eqL app length pdb.dbref then
+	pdb.dbref = tr pdb.dbref;
+    endif;
+
+	// SEQRES, MODRES, SEQADV
+
+    if length pdb.seqres then
+	local seq = pdb.seqres;
+	local ch_id = app second seq;
+	local nres = app third seq;
+	m = (1 == app first seq);
+	[nres, ch_id] = [nres, ch_id] || [m];
+	seq = app cat split [app last seq, mtoc (1 == app first seq)];
+	seq = apt keep [seq, nres];
+	seq = seq || tok_length seq;			    // nres can lie
+	[ch_id, seq] = [ch_id, seq] || [app length seq];
+	pdb.seqres = tag [app token ch_id, toupper seq];    // toupper
+    endif
+
+    function parse_res_rec res_tag
+	local res_rec = tr pdb.(res_tag);
+	if l_length res_rec then
+	    res_rec(length res_rec) = app token app trim_ws last res_rec;
+	    pdb.(res_tag) = res_rec;
+	else
+	    pdb = pdb | m_diff [tags pdb, res_tag];
+	endif
+    endfunction
+
+    parse_res_rec 'modres';
+    parse_res_rec 'seqadv';
+
+	// HET, HETNAM, HETSYN, FORMUL
+
+    function parse_hetlist het_tag
+	local [rname, het_name] = tr pdb.(het_tag);
+	het_name = app trim_ws het_name;
+	m = m_uniq rname;
+	het_name = app cat split [het_name, mtoc m];
+	if het_tag == 'hetsyn' and length het_name then
+	    het_name = apt split_list [het_name, ";"];
+	endif
+	pdb.(het_tag) = tag [rname | m, het_name];
+    endfunction
+
+    parse_hetlist 'hetnam';
+    parse_hetlist 'hetsyn';
+
+    if length pdb.formul then
+	pdb.formul = parse_formulas pdb.formul;
+    endif
+
+	// Unit cell - tolerates some hand-edited variants.
+
+    v = cat first pdb.cryst1;
+    n = indexof [1, isalpha v];
+    if n then
+	local dim = cat first sread [keep [v, dec n], '{n:*}'];
+	if length dim == 6 then
+	    pdb.unit_cell = dim;
+	else
+	    pdb.unit_cell = first sread [v, '{n:9}{n:9}{n:9}{n:7}{n:7}{n:7}'];
+	endif
+	v = first sread [drop [v, dec n], '{t:11}{n:*}'];
+	pdb.space_group = v(1);
+	pdb.unit_cell_Z = v(2);
+    endif
+
+    pdb = taguniq pdb; // strip empty tags
+
+    return [pdb, L];
+endfunction
+
+//=============== fread_PDB_model: Bonding, Chemistry, Residue types etc ======
+
+const RIBOSE = [
+  ['O5*','C5*','C4*','O4*','C3*','O3*','C2*','C1*','P','OP1','OP2','OP3','O2*'],
+  [[2,9], 3, [4,5], 8, [6,7], [], [8,13], [], [10,11,12], [], [], [], [] ]
+];
+
+// pdbx_formal_charge from components.cif, except halogens
+// using the rule that charge is otherwise # from (el name)#
+// halogens: pass through to autotype?
+
+const PDB_IONS = untag [
+    AG:1, AL:3, AU:1, BA:2, BR:-1, CA:2, CD:2, CE:3, CL:-1, CO:2, CR:3, CS:1,
+    CU:2, EU:2, FE:3, GA:3, GD:3, HG:2, HO:3, I:-1, IN:3, IR:4,  K:1, LA:3,
+    LI:1, LU:3, MG:2, MN:2, MO:4, NA:1, NI:3, OS:3, PB:2, PD:2, PR:3, PT:2,
+    RB:1, RU:3, SM:3, SR:2, TB:3, TL:1, V:3, W:6, Y:2, YB:3, ZN:2
+];
+
+// HIP is ambiguous; in an RCSB file it should be ND1-phosphonohistidine;
+// however, there is common usage of the AMBER conventions (and HIP in the
+// RCSB sense appears in only five files as of 2010-02-09 - 1JEM,1NSP,1NSQ,
+// 1PFH & 2VME).
+// !!! UNK really doesn't belong here. We can call UNK's with appropriate
+// atom names amino later on ...
+
+const STD_AMINO_RES_ATOMS = [
+    UNK:['CA', []],
+    ACE:[['CA','C','O'], [2,3,[]]],
+    NH2:[ 'N', []],
+    NME:[['N','CA'], 2],
+    FOR:[['C','O'], 2],
+    ALA:[['N','CA','C','O','CB', 'OXT'], [ 2, [3,5], [4,6], [], [], []] ],
+    ARG:[['N','CA','C','O','CB','CG','CD','NE','CZ','NH1','NH2','OXT'],
+	 [ 2, [3,5], [4,12], [], 6, 7, 8, 9, [10,11], [], [], [], []]],
+    ASN:[['N','CA','C','O','CB','CG','OD1','ND2','OXT'],
+	 [ 2, [3,5], [4,9], [], 6, [7,8], [], [], [], []] ],
+    ASP:[['N','CA','C','O','CB','CG','OD1','OD2','OXT'],
+	 [ 2, [3,5], [4,9], [], 6, [7,8], [], [], []]],
+    ASH:[['N','CA','C','O','CB','CG','OD1','OD2','OXT'],
+	 [ 2, [3,5], [4,9], [], 6, [7,8], [], [], []]],
+    CYS:[['N','CA','C','O','CB','SG','OXT'],
+	 [ 2, [3,5], [4,7], [], 6, [], []] ],
+    CYX:[['N','CA','C','O','CB','SG','OXT'],
+	 [ 2, [3,5], [4,7], [], 6, [], []] ],
+    CYM:[['N','CA','C','O','CB','SG','OXT'],
+	 [ 2, [3,5], [4,7], [], 6, [], []] ],
+    CSO:[['N','CA','C','O','CB','SG','OD','OXT'],
+	 [ 2, [3,5], [4,8], [], 6, 7, []] ],
+    GLN:[['N','CA','C','O','CB','CG','CD','OE1','NE2', 'OXT'],
+	 [ 2,[3,5],[4,10],[],6,7,[8,9],[],[],[]]],
+    PCA:[['N','CA','C','O','CB','CG','CD','OE', 'OXT'],
+	 [ [2,7], [3,5], [4,9], [], 6, 7, 8, [], [] ]],
+    GLU:[['N','CA','C','O','CB','CG','CD','OE1','OE2', 'OXT'],
+	 [ 2,[3,5],[4,10],[],6,7,[8,9],[],[],[]] ],
+    GLH:[['N','CA','C','O','CB','CG','CD','OE1','OE2', 'OXT'],
+	 [ 2,[3,5],[4,10],[],6,7,[8,9],[],[],[]]],
+    GLY:[['N','CA','C','O','OXT'], [ 2, 3, [4,5], [], []] ],
+    HID:[['N','CA','C','CB','CG','ND1','CD2','CE1','NE2','O','OXT'],
+	 [ 2, [3,4], [10,11], 5, [6,7], 8, 9, 9, [], [], []] ],
+    HIE:[['N','CA','C','CB','CG','ND1','CD2','CE1','NE2','O','OXT'],
+	 [ 2, [3,4], [10,11], 5, [6,7], 8, 9, 9, [], [], []] ],
+    HIP:[['N','CA','C','CB','CG','ND1','CD2','CE1','NE2','O','OXT'],
+	 [ 2,[3,4],[10,11],5,[6,7],8,9,9,[],[],[]] ],
+    HIS:[['N','CA','C','O','CB','CG','ND1','CD2','CE1','NE2','OXT'],
+	 [ 2,[3,5],[4,11],[],6,[7,8],9,10,10,[],[]] ],
+    HYP:[['N','CA','C','CB','CG','OD1','CD','O','OXT'],
+	 [ [2,7],[3,4],[8,9],5,[6,7],[],[],[],[]]],
+    ILE:[['N','CA','C','O','CB','CG1','CG2','CD1','OXT'],
+	 [ 2, [3,5], [4,9] , [], [6,7], 8, [], [], []] ],
+    LEU:[['N','CA','C','O','CB','CG','CD1','CD2','OXT'],
+	 [ 2,[3,5],[4,9],[],6,[7,8],[],[],[]] ],
+    LYS:[['N','CA','C','O','CB','CG','CD','CE','NZ','OXT'],
+	 [ 2,[3,5],[4,10],[],6,7,8,9,[],[]] ],
+    LYN:[['N','CA','C','O','CB','CG','CD','CE','NZ','OXT'],
+	 [ 2,[3,5],[4,10],[],6,7,8,9,[],[]] ],
+    MET:[['N','CA','C','O','CB','CG','SD','CE','OXT'],
+	 [ 2,[3,5],[4,9],[],6,7,8,[],[]] ],
+    MSE:[['N','CA','C','O','CB','CG','SE','CE','OXT'],
+	 [ 2,[3,5],[4,9],[],6,7,8,[],[]] ],
+    PHE:[['N','CA','C','O','CB','CG','CD1','CD2','CE1','CE2','CZ','OXT'],
+	 [ 2,[3,5],[4,12],[],6,[7,8],9,10,11,11,[]] ],
+    PRO:[['N','CA','C','O','CB','CG','CD','OXT'],
+	 [ [2,7],[3,5],[4,8],[],6,7,[],[]] ],
+    SER:[['N','CA','C','O','CB','OG','OXT'],
+	 [ 2, [3,5], [4,7], [], 6, [], []] ],
+    SEP:[['N','CA','C','O','CB','OG','P','O1P', 'O2P','O3P','OXT'],
+	 [ 2, [3,5], [4,11], [], 6, 7, [8,9,10], []] ],
+    THR:[['N','CA','C','O','CB','OG1','CG2','OXT'],
+	 [ 2,[3,5],[4,8],[],[6,7],[],[],[]] ],
+    TPO:[['N','CA','C','O','CB','OG1','CG2','P','O1P','O2P','O3P','OXT'],
+	 [ 2,[3,5],[4,12],[],[6,7],8,[],[9,10,11],[]] ],
+    TRP:[['N','CA','C','O','CB','CG','CD1','CD2','NE1','CE2','CE3','CZ2','CZ3',
+	    'CH2','OXT'],
+	 [ 2,[3,5],[4,15],[],6,[7,8],9,[10,11],10,12,13,14,14,[],[]]],
+    TYR:[['N','CA','C','O','CB','CG','CD1','CD2','CE1','CE2','CZ','OH','OXT'],
+	[ 2, [3,5], [4,13], [], 6, [7,8], 9, 10, 11, 11, 12, [], []] ],
+    PTR:[['N','CA','C','O','CB','CG','CD1','CD2','CE1','CE2','CZ','OH',
+	    'P','O1P','O2P','O3P','OXT'],
+	[ 2,[3,5],[4,17],[],6,[7,8],9,10,11,11,12,13,[14,15,16],[]] ],
+    VAL:[['N','CA','C','CB','CG1','CG2','O','OXT'],
+	 [ 2, [3,4], [7,8], [5,6], [], [], [], []] ]
+];
+
+const NUCLEOTIDES = [
+    T:[ ['N1','C2','O2','N3','C4','O4','C5','C5M','C6'],
+	[[2,9], [3,4], [], 5, [6,7], [], [8,9], [], [] ] ],
+    U:[ ['N1','C2','O2','N3','C4','O4','C5','C6'],
+	[[2,8], [3,4], [], 5, [6,7], [], 8, [] ] ],
+    A:[ ['N9','C8','N7','C5','C6','N6','N1','C2','N3','C4'],
+	[[2,10], 3, 4, [5,10], [6,7], [], 8, 9, 10, [] ] ],
+    I:[ ['N9','C8','N7','C5','C6','O6','N1','C2','N3','C4'],
+	[[2,10], 3, 4, [5,10], [6,7], [], 8, 9, 10, [] ] ],
+    G:[ ['N9','C8','N7','C5','C6','O6','N1','C2','N2','N3','C4'],
+	[[2,11], 3, 4, [5,11], [6,7], [], 8, [9,10], [], 11, []] ],
+    C:[ ['N1','C2','O2','N3','C4','N4','C5','C6'],
+	[[2,8], [3,4], [], 5, [6,7], [], 8, [] ] ],
+    DT:[ ['N1','C2','O2','N3','C4','O4','C5','C5M','C6'],
+	[[2,9], [3,4], [], 5, [6,7], [], [8,9], [], [] ] ],
+    DU:[ ['N1','C2','O2','N3','C4','O4','C5','C6'],
+	[[2,8], [3,4], [], 5, [6,7], [], 8, [] ] ],
+    DA:[ ['N9','C8','N7','C5','C6','N6','N1','C2','N3','C4'],
+	[[2,10], 3, 4, [5,10], [6,7], [], 8, 9, 10, [] ] ],
+    DI:[ ['N9','C8','N7','C5','C6','O6','N1','C2','N3','C4'],
+	[[2,10], 3, 4, [5,10], [6,7], [], 8, 9, 10, [] ] ],
+    DG:[ ['N9','C8','N7','C5','C6','O6','N1','C2','N2','N3','C4'],
+	[[2,11], 3, 4, [5,11], [6,7], [], 8, [9,10], [], 11, []] ],
+    DC:[ ['N1','C2','O2','N3','C4','N4','C5','C6'],
+	[[2,8], [3,4], [], 5, [6,7], [], 8, [] ] ]
+];
+
+const STD_NUCLEIC_RESIDUES = [
+    'DT','DA','DG','DC','DI','DU',
+    'T','A','G','C','I','U','N',
+    '+T','+A','+G','+C','+I','+U'
+];
+
+local function get_atom_table []
+    local i, x, m;
+
+    local atom_table = [amino:STD_AMINO_RES_ATOMS];
+
+    local [R,A] = untag NUCLEOTIDES;
+    local [an,bonds] = tr A;
+    local n = app length an;
+    an = apt cat [an, [first RIBOSE]];
+    bonds = apt cat [bonds, n + [last RIBOSE]];
+    x = apt indexof ['C1*', an];
+    local nb = apt cat [app first bonds, apt indexof ['C1*', an]] ;
+    bonds = apt poke [bonds, 1, nb];
+
+    atom_table.rna = tag [R, tr [an, bonds]];
+
+	// Create the DNA table by dropping the last oxygen from the RNA table
+
+    for i = 1, length bonds loop
+	local B = cat bonds(i);
+	m = B < dec length bonds(i);
+	B = split [B | m, s_add [m, app length bonds(i)]];
+	an(i) = droplast an(i);
+	bonds(i) = droplast B;
+    endloop
+    atom_table.dna = tag [R, tr [an, bonds]];
+
+    return atom_table;
+endfunction
+
+// We use library to assign standard attr; if we discover later that there
+// are unusual bonds to take into account, we will run another pass
+// using atoms. Anyone who now does not match will be autotyped.
+
+// We find residues with the same name & atoms & apply standard attr.
+// When peptide bonds are formed, we set N to sp2 & neutral.
+
+local function mol_StandardAttributes [mol, opt]
+    static std_atoms;
+    if isnull std_atoms then
+	std_atoms = get_atom_table [];
+    endif
+
+    local i,x,m;
+
+    local rN = mol_rName mol;
+    local nA = mol_nAtoms mol;
+    local aN = mol_aName mol;
+    local el = mol_aEle mol;
+    local xR = stretch [x_id rN, nA];
+
+    aN | aN == 'CD'  and rN[xR] == 'ILE' = 'CD1';	    // CHARMM naming
+    aN | aN == 'CH3' and rN[xR] == 'ACE' = 'CA';	    // Amber
+    aN | aN == 'CH3' and rN[xR] == 'NME' = 'CA';	    // Amber
+
+	// Set amino & nucleic residue types.
+
+    local rT = rep ['none', mol_rCount mol];
+    rT | indexof [rN, tags std_atoms.amino] = 'amino';
+    rT | indexof [rN, STD_NUCLEIC_RESIDUES] = 'dna';
+
+    if anytrue opt.translate_primes then
+	m = str_R2A [mol, rT] == 'dna';
+	local s = app string (aN | m);
+	if 1 == opt.translate_primes then
+	    aN | m = app token apt mput [s, s == "'", "*"];
+	    aN | m and aN == 'OP1' = 'O1P';
+	    aN | m and aN == 'OP2' = 'O2P';
+
+	else
+	    aN | m = app token apt mput [s, s == "*", "'"];
+	    aN | m and aN == 'O1P' = 'OP1';
+	    aN | m and aN == 'O2P' = 'OP2';
+	endif
+	mol(4)(MOL_ATOM_NAME) = aN;
+    endif
+
+	// Determine RNA type from atoms.
+
+    m = app orE split [indexof [aN, ['O2*','O2\'']], nA];
+    rT | (rT == 'dna' and (m or rN == 'U')) = 'rna';
+    mol(3)(MOL_RES_TYPE) = rT;
+
+	// Set the backbone bit on amino & nucleic.
+
+    const AMINO_MAIN = ['N','CA','C','O','OXT'];
+    const NUCLEIC_MAIN = [
+	'C3\'','C4\'','C5\'', 'O3\'','O3\'','O5\'',
+	'C3*','C4*','C5*','O1P','O2P','O3P','O3*','O5*','P'
+    ];
+
+    x = indexof [str_R2A [mol, rT], ['amino','dna','rna']];
+    mol(4)(MOL_ATOM_BACKBONE) = orE [
+	x == 1 and indexof [aN, AMINO_MAIN],
+	x > 1  and indexof [aN, NUCLEIC_MAIN]
+    ];
+
+	// Set intra-residue bonds from the std_atoms table.
+	// TBD: bond hydrogens here: alternates are gone, after all.
+
+    xR = stretch [igen mol_cCount mol, mol_nRes mol];
+    local xTerm = xR <> rotlpoke [xR, 0];
+
+    [aN,el] = apt split [[aN,el], [nA]];
+    x = split [igen mol_aCount mol, nA];
+    local B = rep [[], mol_aCount mol], stdF = zero rT;
+    for i in x_pack (rT <> 'none' and nA > 0) loop
+	local [Aname, bonds] = std_atoms.(rT(i)).(rN(i));
+	local an = aN(i);
+	if xTerm(i) then
+	    m = an == 'O';
+	    an | m and (2 == pscan m) = 'OXT';	// allows duplicate O !!!
+	endif
+	local x1 = indexof [an, Aname];
+
+	if andE (x1 or 1 >= el_Protons el(i)) then
+//	    stdF(i) = andE indexof [Aname | Aname <> 'OXT', an];
+	    stdF(i) = andE indexof [an, Aname]; // Aname | Aname <> 'OXT', an];
+	    if isnull bonds then continue; endif;
+	    bonds = bonds[pack x1];
+	    Aname = Aname[cat bonds];
+	    local x2 = indexof [Aname, an];
+	    if isnull x2 then continue; endif;
+	    x2 = app pack split [x2, app length bonds];
+	    B[x(i) | x1] = split [x(i)[cat x2], app length x2];
+	endif
+    endloop
+
+    mol = mol_aSetBnd [mol, B];
+    mol = mol_rSetStd [mol, stdF];
+
+    return mol;
+endfunction
+
+// Override default states: 'sp3', neutral etc
+// !!! SimpleWash makes phosphate groups unnecessary here.
+
+const STANDARD_CHEM = [
+    ACE:[ sp2:['C','O']],
+    FOR:[ sp2:['C','O']],
+    ASN:[ sp2:['CG','OD1','ND2']],
+    GLN:[ sp2:['CD','OE1','NE2']],
+    PCA:[ sp2:['CD','OE']],
+    ASP:[ sp2:['CG','OD1','OD2'], anion:'OD2'],
+    GLU:[ sp2:['CD','OE1','OE2'], anion:'OE2'],
+    PHE:[ sp2:['CG','CD1','CD2','CE1','CE2','CZ']],
+    TYR:[ sp2:['CG','CD1','CD2','CE1','CE2','CZ']],
+    PTR:[ sp2:['CG','CD1','CD2','CE1','CE2','CZ']],
+    TRP:[ sp2:['CG','CD1','CD2','NE1','CE2','CE3','CZ2','CZ3','CH2']],
+    HIS:[ sp2:['CG','ND1','CD2','CE1','NE2'], hintlp:'ND1'],
+    HID:[ sp2:['CG','ND1','CD2','CE1','NE2'], hintlp:'NE2'],
+    HIE:[ sp2:['CG','ND1','CD2','CE1','NE2'], hintlp:'ND1'],
+    HIP:[ sp2:['CG','ND1','CD2','CE1','NE2'], cation:'ND1'],
+    ARG:[ sp2:['NE','CZ','NH1','NH2'], cation:'NH2'],	// components.cif
+    LYS:[ cation:'NZ' ],
+
+    A:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N1','N3','N7']],
+    G:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N3','N7']],
+    T:[ anion:['OP1','OP2','OP3'], cation:'P'  ],
+    C:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:'N3'],
+    I:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N1','N3','N7']],
+    U:[ anion:['OP1','OP2','OP3'], cation:'P' ],
+
+    DA:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N1','N3','N7']],
+    DG:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N3','N7']],
+    DT:[ anion:['OP1','OP2','OP3'], cation:'P'  ],
+    DC:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:'N3'],
+    DI:[ anion:['OP1','OP2','OP3'], cation:'P', hintlp:['N1','N3','N7']],
+    DU:[ anion:['OP1','OP2','OP3'], cation:'P' ]
+];
+
+// Set ATOM_ION, ATOM_GEOM, & ATOM_HINTLP states for standard amino
+// acids and nucleotides.
+
+local function mol_StandardChemistry mol
+    local x,m;
+    local rN = str_R2A [mol, mol_rName mol];
+    local rT = str_R2A [mol, mol_rType mol];
+    local aN = mol_aName mol;
+
+    local hyb = mol_aHyb mol;
+    local ion = mol_aIon mol;
+    local hlp = mol_aHLP mol;
+
+    local residue;
+    for residue in tags STANDARD_CHEM loop
+	x = x_pack (residue == rN);
+	local Aname = aN[x];
+	local chem = STANDARD_CHEM.(residue);
+	hlp [x | indexof [Aname, chem.hintlp ]] =  1;
+	hyb [x | indexof [Aname, chem.sp2    ]] = 'sp2';
+	hyb [x | indexof [Aname, chem.d2sp3  ]] = 'd2sp3';
+	ion [x | indexof [Aname, chem.cation ]] =  1;
+	ion [x | indexof [Aname, chem.anion  ]] = -1;
+	if length chem.ion then
+	    local x_ion = indexof [Aname, tags chem.ion];
+	    ion [x | x_ion] = tagget [chem.ion, Aname | x_ion];
+	endif
+    endloop
+
+	// Ribose & main chain peptide atoms are not in the chemical tables.
+
+    local na_sp3 = cat [first RIBOSE, 'C5M'];
+    hyb | indexof [rT, ['dna','rna']] and not indexof [aN, na_sp3] = 'sp2';
+    hyb | mol_aBck mol and indexof [aN, ['C','O','N']] = 'sp2';
+    ion | rT == 'amino' and aN == 'OXT' = -1;
+
+    m = aN == 'N'and rT == 'amino';
+    ion | m = 1;
+    hyb | m = 'sp3';
+
+    x = indexof [toupper mol_aEle mol, PDB_IONS(1)];
+    x | 1 < str_R2A [mol, mol_nAtoms mol] = 0;
+    ion | x = PDB_IONS(2)[pack x];
+
+    mol(4)(MOL_ATOM_GEOM)   = hyb;
+    mol(4)(MOL_ATOM_ION)    = ion;
+    mol(4)(MOL_ATOM_HINTLP) = hlp;
+
+    return mol;
+endfunction
+
+//============= Standardize residues ==========================================
+
+function amber_ResidueLibrary, amber_ResidueLookup;
+
+static amberRlib, amberMols;
+
+#if 0
+
+// Empty res: if they match an amino acid ...
+// connectivity & (preliminary chemistry)
+
+local function mol_AmberAttributes [mol, opt]
+    static mols;
+
+    if isnull amberRlib then
+	amberRlib = amber_ResidueLibrary '$MOE/lib/amber10.mdb';
+	mols = apt tagpeek [amberRlib, 'mol'];
+    endif
+
+
+    local rN = mol_rName mol;
+    local nA = mol_nAtoms mol;
+    local aN = mol_aName mol;
+    local el = mol_aEle mol;
+    local xR = stretch [x_id rN, nA];
+
+    aN | aN == 'CD'  and rN[xR] == 'ILE' = 'CD1';	    // CHARMM naming
+    aN | aN == 'CH3' and rN[xR] == 'ACE' = 'CA';	    // Amber
+    aN | aN == 'CH3' and rN[xR] == 'NME' = 'CA';	    // Amber
+
+	// Set amino & nucleic residue types.
+
+    local rT = rep ['none', mol_rCount mol];
+    rT | indexof [rN, tags std_atoms.amino] = 'amino';
+    rT | indexof [rN, STD_NUCLEIC_RESIDUES] = 'dna';
+
+	// Here we translate primes only if the name matches DT etc or T etc
+
+    if anytrue opt.translate_primes then
+	m = str_R2A [mol, rT] == 'dna';
+	local s = app string (aN | m);
+	if 1 == opt.translate_primes then
+	    aN | m = app token apt mput [s, s == "'", "*"];
+	    aN | m and aN == 'OP1' = 'O1P';
+	    aN | m and aN == 'OP2' = 'O2P';
+
+	else
+	    aN | m = app token apt mput [s, s == "*", "'"];
+	    aN | m and aN == 'O1P' = 'OP1';
+	    aN | m and aN == 'O2P' = 'OP2';
+	endif
+	mol(4)(MOL_ATOM_NAME) = aN;
+    endif
+
+	// rna  vs dna comes from match
+
+	// backbone bit: from match
+	// Set the backbone bit on amino & nucleic.
+
+    local idx = indexof [rname, lib.names];
+
+    for i = 1, length res loop
+    endloop
+
+    return mol;
+endfunction
+
+#endif
+
+local function mol_AmberStandardize mol
+
+    if isnull amberRlib then
+	amberRlib = amber_ResidueLibrary '$MOE/lib/amber10.mdb';
+	amberMols = apt tagpeek [amberRlib, 'mol'];
+    endif
+
+    local psys = SystemPush [];
+    local chains = mol_Create mol;
+    local res = Residues[];
+
+    local [idx, atoms] = amber_ResidueLookup [
+	amberRlib, res, [level:0, stereo:1]
+    ];
+
+    local ridx = x_pack app length idx;
+    idx = app first idx[ridx];
+    atoms = app first atoms[ridx];
+
+    local i, mols = amberMols[idx];;
+    for i = 1, length idx loop
+	local resmol = mols(i);
+	local mask = atoms(i);
+	atoms(i) = pack atoms(i);
+	aSetIon	     [atoms(i), (mol_aIon  resmol) | mask];
+	aSetGeometry [atoms(i), (mol_aHyb  resmol) | mask];
+	aSetHintLP   [atoms(i), (mol_aHLP  resmol) | mask];
+
+	local aname = (mol_aName resmol) | mask;
+	mask = aIsLight atoms(i);
+	aSetName [atoms(i) | mask, aname | mask];
+    endloop
+
+    local mol2 = mol_Extract Residues[];
+    oDestroy chains;
+    SystemPop psys;
+
+    mol(3)(MOL_RES_STD)     = put [mol_rStd mol, ridx, 1];
+    mol(4)(MOL_ATOM_ION)    = mol_aIon mol2;
+    mol(4)(MOL_ATOM_GEOM)   = mol_aHyb mol2;
+    mol(4)(MOL_ATOM_HINTLP) = mol_aHLP mol2;
+
+    return mol;
+endfunction
+
+//========== Bonding & Typing ================================================
+
+const WATER_RESIDUES = ['HOH','WAT','TIP','SOL','OH2','DOD','D20'];
+
+local function is_water_res v = indexof [v, WATER_RESIDUES];
+
+// !!! and unbonded (according to explicit inter-residue conects)
+
+local function mol_rSolventIonsMetals mol
+    local na = s_add [not mol_aLht mol, mol_nAtoms mol];
+    local rn = mol_rName mol;
+    return (na == 1 and indexof [rn, first PDB_IONS]) or is_water_res rn;
+endfunction
+
+local function mol_aProx mol
+    const BOND_TOL = 0.50;  // AutoConnect threshold
+    local P = mol_aPos mol;
+    local R = mol_aRad mol;
+
+    local key = prox_open [2 * max [0, max R] + BOND_TOL, P, R + BOND_TOL];
+    local [N,x2,d2] = prox_find [key, P, R];
+    prox_close key;
+
+    return [stretch [x_id N, N], x2, d2];
+endfunction
+
+local function MatchCTAB [Aname, isH, ctab]
+    local i, x = [];
+    for i = 1, length ctab.aname loop
+	x(i) = indexof [Aname, ctab.aname(i)];
+	if andE (x(i) or isH) then break; endif;
+    endloop
+    i = x_max app length app pack x;
+    return [x(i), ctab.aname(i)];
+endfunction
+
+local function mol_ApplyCTAB [mol, ctab_dict]
+    local rn = mol_rName mol;
+
+    local ion = mol_aIon mol;
+    local hyb = mol_aHyb mol;
+    local hlp = mol_aHLP mol;
+    local bnd = mol_aBnd mol;
+
+    local Hdeg = mol(4)(MOL_ATOM_CTABH);
+
+    if isnull Hdeg or Hdeg(1) === " " then
+	Hdeg = -1 * one ion;
+    endif
+
+    local std = mol_rStd mol;
+
+    local natoms = mol_nAtoms mol;
+    local Aname = split [mol_aName mol,	        natoms ];
+    local anum  = split [igen mol_aCount mol,	natoms ];
+    local light = split [mol_aLht mol,	        natoms ];
+
+    const LONG_BOND = 3;
+
+    local i;
+    for i in x_pack indexof [rn, tags ctab_dict] loop
+	local ctab = ctab_dict.(rn(i));
+	if isnull ctab then continue; endif;
+	local [x1, an] = MatchCTAB [Aname(i), light(i), ctab];
+	local n = anum(i) | x1, x = pack x1;
+
+	local B = (ctab.bonds)[x];
+	local x2 = indexof [an[cat B], Aname(i)];
+	if length x2 then
+	    x2 = app pack split [x2, app length B];
+	    B = split [anum(i)[cat x2], app length x2];
+	    local j, d = 0;
+	    for j = 1, length n loop
+		local p1 = apt peek [mol_aPos mol, n(j)];
+		local p2 = apt get [mol_aPos mol, [B(j)]];
+		d = max [d, max norm sub [p1, p2]];
+	    until d > LONG_BOND
+	    endloop
+	    if d > LONG_BOND then
+		continue;   // Unreliable CTAB
+	    endif;
+	    bnd[n] = B;
+	endif
+
+	ion[n] = (ctab.ion)[x];
+	hyb[n] = (ctab.hyb)[x];
+	hlp[n] = (ctab.hlp)[x];
+
+	    // Protect from CTAB's with no hydrogens.
+
+	if add ('H' == ctab.ele) then
+	    Hdeg[n] = (ctab.Hdeg)[x];
+	endif
+
+	std(i) = andE (x1 or light(i));
+    endloop
+
+    mol(4)(MOL_ATOM_ION)    = ion;
+    mol(4)(MOL_ATOM_GEOM)   = hyb;
+    mol(4)(MOL_ATOM_HINTLP) = hlp;
+    mol(4)(MOL_ATOM_BONDS)  = bnd;
+    mol(4)(MOL_ATOM_CTABH)  = Hdeg;
+
+    mol = mol_rSetStd [mol, std];
+
+    return mol;
+endfunction
+
+local function mol_MicroHet mol
+    const CLASH_VAL = 0.5;
+    local P = mol_aPos mol;
+    local key = prox_open [2 * CLASH_VAL, P, CLASH_VAL];
+    local [N,x2] = prox_find [key, P, 0];
+    prox_close key;
+
+    local x1 = stretch [x_id N, N];
+
+    local R_idx   = mol_aRnum mol;
+    local R_uid   = str_R2A [mol, mol_rUID mol];
+    local R_ins   = str_R2A [mol, mol_rINS mol];
+    local R_type  = str_R2A [mol, mol_rType mol];
+    local A_name  = mol_aName mol;
+    local A_chain = mol_aCnum mol;
+    local light   = mol_aLht mol;
+
+    local m = andE [
+	not (A_name[x1] == 'SG' and A_name[x2] == 'SG'),
+	not (A_name[x1] == 'C'  and A_name[x2] == 'N'),
+	not (light[x1] or light[x2]),
+	R_idx[x1] == dec R_idx[x2] and A_chain[x1] == A_chain[x2],
+	R_uid[x1] == R_uid[x2] and R_ins[x1] == R_ins[x2],
+	R_type[x1] == 'amino' or R_type[x2] == 'amino'	// ??
+    ];
+    m = put [zero igen mol_rCount mol, R_idx[x2|m], 1];
+
+    if anytrue m then
+	local variants = mol_rMask [mol, m];
+	variants = mol_cMask [variants, mol_nRes variants];
+	variants(2)(MOL_CHAIN_HEADER) = rep [
+	    'Sequence Variants', mol_cCount variants
+	];
+	variants(4)(MOL_ATOM_ACTIVE) = zero variants(4)(MOL_ATOM_ION);
+	mol = mol_Cat [mol_rMask [mol, not m], variants];
+    endif
+
+    return mol;
+endfunction
+
+local function mol_StandardBonds mol
+
+    local [x1,x2,d2] = mol_aProx mol;
+    [x1,x2,d2] = apt get [[x1,x2,d2], [x_sort d2]];
+
+    local R_idx   = mol_aRnum mol;
+    local R_uid   = str_R2A [mol, mol_rUID mol];
+    local R_type  = str_R2A [mol, mol_rType mol];
+    local A_name  = mol_aName mol;
+    local A_chain = mol_aCnum mol;
+    local L       = mol_aLht mol;
+
+	// Make the polymer bonds between consecutive residues.
+	// Also bonds hydrogens to nearest heavy atom... should do this
+	// separately?
+
+    local m = andE [
+	R_idx[x1] == dec R_idx[x2] and A_chain[x1] == A_chain[x2],
+	orE [
+	    A_name[x1] == 'C'    and A_name[x2] == 'N',
+	    A_name[x1] == 'O3*'  and A_name[x2] == 'P',
+	    A_name[x1] == 'O3\'' and A_name[x2] == 'P'
+	]
+    ];
+    local m_lht = L[x1] and not L[x2] and (R_idx[x1] == R_idx[x2]);
+    m_lht | m_lht = m_uniq (x1 | m_lht);
+    m = m or m_lht;
+
+    local B = mol_aBnd mol;
+    B[x1|m] = apt cat [B[ x1|m ], x2|m];
+    mol(4)(MOL_ATOM_BONDS) = B;
+
+    return mol;
+endfunction
+
+local function mol_aFullNameAloc mol = cat tok_cat [
+    split [mol_aName mol, mol_nAtoms mol], '_',
+    split [app token mol(4)(MOL_ATOM_ALOC), mol_nAtoms mol], '_',
+    mol_rName mol, '_', stretch [mol_cName mol, mol_nRes mol], '_',
+    totok mol_rUID mol, '_', app token mol_rINS mol
+];
+
+const ORGSYM = ['C','N','O','F','P','S','Cl','Br','I'];
+
+local function count_orgsym_bonds [mol, mask]
+    local el = mol_aEle mol;
+    local B = (mol_aBnd mol) | mask;
+    local n = s_add [m_join [el[cat B], ORGSYM], app length B];
+    return mput [mask, mask, n];
+endfunction
+
+const SYM_ID = ['1_555', '1555', ''];
+local function mol_ApplyLink [mol, link, dometorg]
+    local m = app andE apt indexof [apt get [link, [[13,14]]], [SYM_ID]];
+    link = link | m;
+    if isnull link then return [mol, 1]; endif;
+
+    local a1 = app twrite apt cat ['{}_{}_{}_{}_{}_{}', apt keep [link, 6]];
+    local a2 = app twrite apt cat ['{}_{}_{}_{}_{}_{}', apt drop [link, 6]];
+    local d  = app last link;
+
+    m = a1 == a2 or d == 0;
+    if anytrue m then
+	[a1, a2, d] = [a1, a2, d] || [not m];
+	if alltrue m then
+	    return [mol, 0];
+	endif
+    endif
+
+    local p = mol_aPos mol;
+    local a = mol_aFullNameAloc mol;
+    local b = mol_aBnd mol;
+
+    local y1 = indexof [a1, a];
+    local y2 = indexof [a2, a];
+
+    [a1, a2, d, y1, y2] = [a1, a2, d, y1, y2] || [y1 and y2];
+
+    local m_met = el_Metal mol_aEle mol;
+    local nbnd;
+    local m_org = indexof toupper [mol_aEle mol, ORGSYM];
+    local m_metorg = (m_met[y1] and m_org[y2]) or (m_org[y1] and m_met[y2]);
+    if dometorg then
+	[a1, a2, d] = [a1, a2, d] || [m_metorg];
+	nbnd = count_orgsym_bonds [mol, m_met];
+    else
+	[a1, a2, d] = [a1, a2, d] || [not m_metorg];
+    endif
+
+    local i, j;
+    for i = 1, length a1 loop
+	local x1,x2;
+	for x1 in x_pack (a1(i) == a) loop
+	    local p1 = apt peek [p, x1];
+	    x2 = x_pack (a2(i) == a);
+	    if length x2 then
+		local p2 = apt get [p, [x2]];
+		local d2 = norm sub [p1, p2];
+		j = x_pack (abs sub [d2, d(i)] <= 0.01);
+		if length j then
+		    b(x1) = cat [b(x1), x2(first j)];
+		else
+		endif
+	    endif
+	endloop
+    endloop
+
+    mol = mol_SymmetrizeBondlist poke [mol, [4, MOL_ATOM_BONDS], b];
+
+    if dometorg and anytrue m_metorg then
+	nbnd = count_orgsym_bonds [mol, m_met] - nbnd;
+	if anytrue nbnd then
+	    local ion = mol_aIon mol;
+	    local el = mol_aEle mol;
+	    b = mol_aBnd mol;
+
+	    for i in x_pack (m_met and nbnd > 0) loop
+		ion(i) = ion(i) - nbnd(i);
+		local x = b(i) | m_join [el[b(i)], ORGSYM];
+		ion[x] = inc ion[x];
+	    endloop
+
+	    mol(4)(MOL_ATOM_ION) = ion;
+	endif
+    endif
+
+    return [mol, 1];
+endfunction
+
+local function mol_ApplyConect [mol, conect]
+    if isnull conect then return mol; endif;
+
+    local [a,b] = tr conect;
+    b = app pack b;
+    [a,b] = [stretch [a, app length b], cat b];
+    [a,b] = apt indexof [[a,b], [mol(4)(MOL_ATOM_SERIAL)]];
+    [a,b] = [a,b] || [a and b and a <> b];
+
+    local [x,m] = sam a;
+    [a,b] = [a[x|m], split [b[x], mtoc m]];
+
+    local B = mol_aBnd mol;
+    B[a] = apt cat [B[a], b];
+
+    return mol_aSetBnd [mol, B];
+endfunction
+
+local function mol_AutoConnectMask [mol, rmask, use_link]
+    local M = mol_rMask [mol, rmask];
+    local E = mol_aEle M;
+    local P = mol_aPos M;
+    local B = mol_aBnd M;
+
+    local [x1,x2] = graph_edges AutoConnectFromPosition [E,P,B];
+
+    local res = mol_aRnum M;
+    local pep = str_R2A [M, 'amino' == mol_rType M];
+    local std = str_R2A [M, mol_rStd M];
+    local ion = str_R2A [M, mol_rSolventIonsMetals M];
+    local lht = mol_aLht M;
+    local an  = mol_aName M;
+
+    local cyx = std[x1] and std[x2] and an[x1] == 'SG' and an[x2] == 'SG';
+
+    [x1,x2] = [x1,x2] || nest not orE [
+	ion[x1] or ion[x2],		    // Exclude single-heavy ions etc.
+	lht[x1] or lht[x2],		    // mol_StandardBonds does these.
+	std[x1] and std[x2] and res[x1] == res[x2],
+	std[x1] and std[x2] and pep[x1] and pep[x2] and not cyx,
+	use_link and not cyx and (res[x1] <> res[x2])	// Not if links active
+    ];
+    B = graph_uneighbors [x1, x2, add M(3)(MOL_RES_NATOMS)];
+
+    local m = str_R2A [mol, rmask];
+    B = split [indexof [(x_pack m)[cat B], x_id m], app length B];
+    B = app uniq apt cat [(mol_aBnd mol) | m,  B];
+
+    mol = mol_aSetBnd [mol, mput [mol_aBnd mol, m, B]];
+
+    return mol;
+endfunction
+
+local function mol_AutoConnect [mol, use_link]
+    const CLASH_COUNT = 3;
+    local [x1,x2] = mol_aProx mol;
+
+    local aR = mol_aRnum mol;
+    local xr1 = aR[x1];
+    local xr2 = aR[x2];
+    [xr1,xr2] = [xr1,xr2] || [xr2 > xr1];
+
+    local doneF = zero igen mol_rCount mol;
+    loop
+	local i, clashF = zero doneF;
+	for i in x_pack not doneF loop
+	    if not clashF(i) then
+		local r = xr2 | xr1 == i;
+		r = r | r > i;
+		if length r then
+		    local [x,m] = sam r;
+		    r = (r[x|m]) | (mtoc m) >= CLASH_COUNT;
+		    if length r then
+			clashF[r] = 1;
+		    endif;
+		endif
+	    endif
+	endloop
+	local autoF = not (doneF or clashF);
+	if anytrue autoF then
+	    mol = mol_AutoConnectMask [mol, autoF, use_link];
+
+	endif
+    until alltrue (doneF = doneF or not clashF)
+    endloop
+
+    return mol;
+endfunction
+
+local function mol_AutoType mol
+    local m = str_R2A [mol, not (mol_rStd mol or mol_rSolventIonsMetals mol)];
+
+    local mol_auto = mol_SymmetrizeBondlist mol_aMask [mol, m];
+
+    local E = mol_aEle mol_auto;
+    local P = mol_aPos mol_auto;
+    local B = mol_aBnd mol_auto;
+
+    local [ion, hyb, hlp] = AutoTypeFromPosition [E, P, B];
+
+    mol(4)(MOL_ATOM_ION)    = mput [mol_aIon mol, m, ion ];
+    mol(4)(MOL_ATOM_GEOM)   = mput [mol_aHyb mol, m, hyb ];
+    mol(4)(MOL_ATOM_HINTLP) = mput [mol_aHLP mol, m, hlp ];
+
+    return mol;
+endfunction
+
+//========================= Alternate location atoms ==========================
+
+// For residue with alternate locations, decides ...
+
+local function mol_AltLoc mol
+    mol(3)(MOL_RES_IDX)  = igen mol_rCount mol;
+    mol(3)(MOL_RES_ALOC) = "*";
+
+    local alt = mol(4)(MOL_ATOM_ALOC);
+    if alltrue (alt == " ") then return mol; endif;	// Nothing to do.
+
+    local occ = mol(4)(MOL_ATOM_OCC);
+    local isH = mol_aLht mol;
+
+    local c = rep ["*", mol_rCount mol];
+    [alt, occ, isH] = apt split [[alt, occ, isH], [ mol_nAtoms mol]];
+    occ = (occ * not isH) || alt <> " ";
+    alt = alt || alt <> " ";
+
+    local i;
+    for i = 1, length alt loop
+	local [x,m] = sam alt(i);
+	local n = mtoc m;
+	if length n < 2 then continue; endif;
+	local idx = x_max app add split [occ(i)[x], n];	// "app mean" instead ?
+	c(i) = alt(i)[x|m](idx);
+    endloop
+
+    mol(3)(MOL_RES_ALOC) = c;
+
+    return mol;
+endfunction
+
+local function aUniqName a = tok_cat [totok oParent a, '_', aName a];
+
+local function CopyChem [atoms, alt_loc]
+    local a1 = cat oChildren uniq oParent atoms;
+    local B = app aUniqName BondListExclusive a1;
+    local aname = aUniqName atoms;
+
+    local x, t;
+    for t in alt_loc loop
+	local [a,an] = [atoms, aname] || [alt_loc == t];
+	x = apt indexof [B, [an]];
+	Bond apt get [[a], x || [andE x]];
+    endloop
+
+    x = indexof [aname, aUniqName a1];
+    atoms = atoms | x; a1  = a1[pack x];
+
+    aSetGeometry [atoms, aGeometry a1];
+    aSetIon	 [atoms, aIon a1];
+    aSetHintLP   [atoms, aHintLP a1];
+    aSetBackbone [atoms, aBackbone a1];
+endfunction
+
+local function mol_InsertAltMol [mol, alt_mol]
+    local psys = SystemPush[];
+
+    local C1 = mol_Create mol_DropExtend mol;
+    local R1 = cat oChildren C1;
+    local A1 = cat oChildren R1;
+
+    local active  = mol(4)(MOL_ATOM_ACTIVE);
+    local res_idx = mol(3)(MOL_RES_IDX);
+
+	// First we put all of the alternate conformer atoms back into their
+	// corresponding residues.
+
+    local C2 = mol_Create mol_DropExtend alt_mol;
+    local R2 = cat oChildren C2;
+    local A2 = cat oChildren R2;
+
+    local x = indexof [alt_mol(3)(MOL_RES_IDX), mol(3)(MOL_RES_IDX)];
+
+    local R = cat [R1, R2];
+    local A = cat oChildren R;
+    local mol_cat = mol_Cat [mol, alt_mol];
+    local alt = mol_cat(4)(MOL_ATOM_ALOC);
+
+    local res = R1[x];
+    oReparent [oChildren R2, res];
+
+    local C_temp = oCreate 0;
+
+    CopyChem [A2, alt[indexof [A2, A]]];
+
+	// This loop inserts alternate conformations of non-polymer residues
+	// into new residues directly after the active conformation.
+	// to allow us to pick up the correct properties for the final mol.
+	// NOTE: use new oReparent when it is ready.
+
+    local m = 'none' == rType res and " " == rINS res and rName res <> 'HOH';
+    res = res | m;
+    local atoms = oChildren res;
+    local i, new_r = rep [[], length res];
+    for i = 1, length res loop
+	if anytrue (oParent aBonds atoms(i) <> res(i)) then continue; endif;
+	local alt_r = alt[indexof [atoms(i), A]];
+
+	[x,m] = sam (int alt_r and not indexof [atoms(i), A1]);
+	atoms(i) = split [atoms(i)[x], mtoc m];
+	alt_r = alt_r[x|m];
+
+	if first alt_r == " " then continue; endif;
+	if not eqL app sort aName atoms(i) then continue; endif;
+
+	atoms(i) = dropfirst atoms(i);
+
+	local C = oParent res(i);
+	local C_res = cat oChildren C;
+
+	oReparent [C_res = C_res | rNumber C_res > rNumber res(i), C_temp];
+	new_r(i) = oCreate rep [C, length atoms(i)];
+	oReparent [C_res, C];
+
+	oReparent [atoms(i), new_r(i)];
+
+	rSetName [new_r(i), rName res(i)];
+	rSetUID [new_r(i),  rUID res(i)];
+	rSetINS [new_r(i),  dropfirst alt_r];
+	rSetType [new_r(i), rType res(i)];
+    endloop
+
+    local mol_new = mol_Extract C1;
+
+    local r = cat oChildren C1;
+    local a = cat oChildren r;
+
+    x = indexof [r, cat new_r];
+    r | x = (stretch [res, app length new_r])[pack x];
+
+    x = indexof [r, R];
+    for i = MOL_RES_EXTEND, length mol(3) loop
+	mol_new(3)(i) = mol_cat(3)(i)[x];
+    endloop
+
+    active = 0 < indexof [a, A1 | active];
+
+    x = indexof [a, A];
+    for i = MOL_ATOM_EXTEND, length mol(4) loop
+	mol_new(4)(i) = mol_cat(4)(i)[x];
+    endloop
+    mol_new(4)(MOL_ATOM_ACTIVE) = active;
+
+    SystemPop psys;
+
+    mol(4) = mol_new(4);
+    mol(3) = mol_new(3);
+
+    mol(2)(MOL_CHAIN_NRES) = mol_new(2)(MOL_CHAIN_NRES);
+
+    return mol;
+endfunction
+
+//=============== Clean-up : hyb/ion in peptide main chain; ==================
+
+// This entire section of code should be done using a private system
+// mol_Finalize is particularly poor.
+
+local function mol_AdjustStandardTitratableRes mol
+    local B = mol_aBnd mol;
+    local nH = s_add [(mol_aLht mol)[cat B], app length B];
+
+    if allfalse nH then return mol; endif;
+
+    local rn = str_R2A [mol, indexof [mol_rName mol, ['HIS','ASP','GLU']]];
+    local na = mol_nAtoms mol;
+    local an = indexof [mol_aName mol, ['ND1','NE2','OD1','OD2']];
+    nH | not (an and rn) = 0;
+
+    local H_tot = str_R2A [mol, s_add [nH, na]];
+
+    local ion = mol_aIon mol;
+    ion | an == 1 and rn == 1 and H_tot == 2 = 1;
+    ion | an == 2 and rn == 1 and H_tot == 2 = 0;
+    ion | an  > 2 and rn  > 1 and H_tot  > 0 = 0;
+    mol(4)(MOL_ATOM_ION) = ion;
+
+    local hlp = mol_aHLP mol;
+    hlp | (an == 1 or an == 2) and rn == 1 and nH == 1 = 0;
+    hlp | (an == 1 or an == 2) and rn == 1 and H_tot == 1 and nH == 0 = 1;
+    mol(4)(MOL_ATOM_HINTLP) = hlp;
+
+    local hyb = mol_aHyb mol;
+    hyb | an > 2 and rn > 1 and nH == 1 = 'sp3';
+    mol(4)(MOL_ATOM_GEOM) = hyb;
+
+    return mol;
+endfunction
+
+// SimpleWash looks for very specific acids and bases for protonation
+// & deprotonation.
+
+local function mol_SimpleWash mol
+    local el    = mol_aEle mol;
+    local atno  = el_Protons el;	// atomic number
+    local hyb   = mol_aHyb mol;		// hybridization
+    local ion   = mol_aIon mol;		// ionization
+    local xbond = mol_aBnd mol;		// bond list
+    local deg   = app length xbond;	// explicit degree
+    local xB    = cat xbond;
+    local Qdeg  = s_add [(atno > 1)[xB], deg];	// heavy degree
+
+    local i, n, m, x;
+
+    local isOX	= ((el=='O' or el=='S') and deg == 1);	// is terminal O/S ?
+    local OXdeg = s_add [ isOX[xB], deg ];		// number of OX's
+
+    local S = el == 'S', P = el == 'P', C = el == 'C', N = el == 'N';
+
+	// Look for (thio)carboxylates [O,S;+0X1][C+0]=[O,S;X1].
+
+    m = andE [C,  hyb == 'sp2', ion == 0, OXdeg > 1];
+    for i in x_pack m loop
+	x = xbond(i) | isOX[xbond(i)];
+	x = x[x_sort atno[x]];
+
+	m = (hyb[x] == 'sp2' and ion[x] == 0);	// find == O's
+
+	if (n = iadd m) > 0 then
+	    x = x | put [one m, first x_pack m, 0];
+	else
+	    ion[first x] = 0;
+	    hyb[first x] = 'sp2';
+	    x = dropfirst x;
+	endif
+
+	ion[x] = -1;
+	hyb[x] = 'sp2';
+    endloop
+
+    ion | andE [hyb == 'sp3', OXdeg == 0, S, deg == 3] = 1;
+
+	// look for O-[PX4] or O-[SX3] and make P+ and O- or S+ and O-
+	// look for O-[SX4] make S++ and O-
+
+    m = andE [hyb == 'sp3', OXdeg > 0, orE [P and deg == 4, S and deg == 3]];
+    for i in x_pack m loop
+	ion(i) = 1;
+	ion[xbond(i) | isOX[xbond(i)]] = -1;
+    endloop
+
+    m = andE [hyb == 'sp3', OXdeg > 0, S, deg == 4];
+    for i in x_pack m loop
+	ion(i) = 2;
+	ion[xbond(i) | isOX[xbond(i)]] = -1;
+    endloop
+
+	// look for primary amines: N's with only H or [Csp3+0] as neighbors
+	// !!! 1T46.A STI
+
+    m = (el == 'H') or andE [C, ion == 0, hyb == 'sp3'];
+    m = andE [N, ion == 0, s_add [m[xB], deg] == deg];
+    ion[x_pack m] = 1;
+
+	// look for terminal NCN+ resonances in amidinium/guanidinium
+	// we insist on at least two terminal N's (no rings or mid-groups)
+
+    m = andE [C, ion == 0, hyb == 'sp2', s_add [(N and deg < 4)[xB], deg] > 1];
+    for i in x_pack m loop
+	x = xbond(i);
+	x = x | (el[x] == 'N' and deg[x] < 4);
+	if length x < 2 then continue; endif	    // at least NCN
+
+	m = 0 <> mol_aHLP mol[x];		    // find double bonds
+	if iadd m <> 1 then continue; endif	    // need 1 double bond
+	x = x[x_sort neg m];			    // N=CN
+	if ion(first x) <> 0 then continue; endif   // already +?
+	if deg(first x) >  2 then continue; endif   // need empty slot
+
+	if iadd (Qdeg[x] == 1) < 2 then		    // want two terminal
+	    continue;
+	endif
+
+	ion(first x)     = 1;
+	ion[dropfirst x] = 0;
+    endloop
+
+	// look for N+ next to [S+][O-] or [P+][O-] and neutralize N
+	// !!! LOOK FOR AMIDES TOO ???
+
+    m = andE [OXdeg, hyb == 'sp3', ion > 0, S or P];
+    m = andE [N, deg < 4, hyb == 'sp3', ion > 0, s_add[m[xB],deg]];
+    ion[x_pack m] = 0;
+
+    mol(4)(MOL_ATOM_ION)  = ion;
+    mol(4)(MOL_ATOM_GEOM) = hyb;
+
+    return mol;
+endfunction
+
+local function mol_Finalize mol
+    local x, m, n;
+
+    mol = mol_SymmetrizeBondlist mol;
+
+    local an = mol_aName mol;
+
+    local aR = mol_aRnum mol;
+    local aC = mol_aCnum mol;
+    local el = mol_aEle mol;
+
+    local natoms = mol_nAtoms mol;
+
+    x = inc indexof [an, ['N','CA','C']];    // value of x will be used
+    x = dec mput [x, x == 1 or mol_aEle mol <> ['', 'N','C','C'][x], 1];
+    n = app pack split [x, natoms];
+    n = select [s_add [x > 0, natoms], 0, app alltrue app m_uniq n];
+
+	// UNK's must have either n > 0 or no atoms at all
+
+    m = mol_rName mol == 'UNK' and n == 0 and natoms <> 0;
+    local rT = select ['none', mol_rType mol, m];
+    mol(3)(MOL_RES_TYPE) = rT;
+
+    m = str_R2A [mol, app orE (2 == split [x, mol_nAtoms mol])];
+    n = str_R2A [mol, n];
+
+    local B = mol_aBnd mol;
+    local [x1,x2] = graph_edges B;
+    [x1,x2] = [x1,x2] || [x1 < x2];
+    m = andE [
+	m[x1] and m[x2],		    // both have alpha carbons
+	aC[x1] == aC[x2],		    // same chain
+	aR[x1] == dec aR[x2],		    // consecutive residues
+	x[x1] == 3 and x[x2] == 1	    // names & elements correct
+    ];
+
+    local ion = mol_aIon mol;
+    local hyb = mol_aHyb mol;
+
+    ion[x2 | m] = 0;			    // peptide Nitrogens
+    hyb[x2 | m] = 'sp2';
+
+	// Propagate the amino res type to neighbors; catch UNK's (removed
+	// from table 2009-07-08) by ATOM record, or uniq atom names
+	// including a carbon atom named CA.
+
+    local xAmino = aR[cat [x1|m, x2|m]];
+    mol(3)(MOL_RES_TYPE) = put [mol_rType mol, uniq xAmino, 'amino'];
+    local aminoF = indexof [aR, xAmino];
+
+    m = aminoF and n == 3 and (x or an == 'O');
+    mol(4)(MOL_ATOM_BACKBONE) = mput [mol_aBck mol, m, 1];
+
+#if 0
+    m = aminoF and x == 1;
+    m | m = app anytrue ('C' == apt get [[mol_aName mol], B | m]);
+    hyb | m = 'sp2';
+    ion | m = 0;
+#endif
+
+    local Hdeg = mol(4)(MOL_ATOM_CTABH);
+    if length Hdeg then
+	m = Hdeg < mol_aNumH mol and Hdeg >= 0;
+	if anytrue m then
+	    ion | m = (ion | m) + ((mol_aNumH mol - Hdeg) | m);
+	endif
+    endif
+
+    mol(4)(MOL_ATOM_ION)  = ion;
+    mol(4)(MOL_ATOM_GEOM) = hyb;
+
+    mol = mol_AdjustStandardTitratableRes mol;
+    mol = mol_SimpleWash mol;
+
+    return mol;
+endfunction
+
+//========== Element Assignment from atom names ===============================
+
+// ' CL#' => Chlorine (use El field if it matches ' @@?' && HETATAM)
+// CH2T from CT !!! => what not
+
+const AtomPatterns = [
+    N:'[A-G,I-L,N-Z]N#*',
+    O:['[A-B,D-G,I-L,N-Z]O*','OP[A-C]#','CO[A-Z,0-9]*','OE##'],
+    P:'[A-G,I-K,M-N,P-Z]P*',
+    C:['[A-G,I-Z]C#*','C[B-G,I-K,M,P-T,V-Z]#*','#CH#', 'BC  '],
+    H:['H[0-9,A-E,H-Z]*','#[0-9,A-Z]H*','?H[A-Z,0-9]*', 'HG##'],
+    CL:'#CL#',	    // !!!
+    S:'[P,N]S#*',
+    SE:'NSE1'
+];
+
+local function aname2ele Aname
+    local idx = x_pack not isspace app first Aname;
+    local ele = apt keep [Aname, 2];
+    ele = app token (ele || isalpha ele);
+    ele | not is_el ele = '';
+
+    local els = ele[idx];
+    Aname = app token Aname[idx];
+
+    local el;
+    for el in tags AtomPatterns loop
+	els | m_findmatch [AtomPatterns.(el), Aname] = el;
+    endloop
+
+    return safe_elements put [ele, idx, els];
+endfunction
+
+//=================== pack_chain =============================================
+
+// Assemble preliminary mol structure from atom data. All alternate
+// location atoms are kept in the mol structure at this point
+
+local function pack_chain [A, opt]
+    A = tr A;
+    local ruid = apt twrite ['{}_{}_{}',A(5), A(7), A(8)];
+    local xres = indexof [ruid, ruid];
+    if not anytrue opt.consecutive_atoms then
+	if alltrue m_uniq l_frank A[[3,4,5,7,8]] then
+	    local x = x_sort xres;
+	    A = apt get [A, [x]];
+	    xres = xres[x];
+	endif
+    endif
+
+    local natoms = btoc xres;
+    local m = 1 == cat app igen natoms;
+
+    local mol = mol_Extract [];
+
+    mol(2)(MOL_CHAIN_NRES)   = length natoms;
+    mol(2)(MOL_CHAIN_NAME)   = token uniq A(6);		    // chain letter
+    mol(2)(MOL_CHAIN_HEADER) = '';
+    mol(2)(MOL_CHAIN_TAG)    = '';
+
+    mol(3)(MOL_RES_NATOMS) = natoms;
+    mol(3)(MOL_RES_NAME)   = toupper (A(5) | m);	    // note: toupper
+    mol(3)(MOL_RES_UID)    = A(7) | m;
+    mol(3)(MOL_RES_INS)    = A(8) | m;
+    mol(3)(MOL_RES_TYPE)   = rep ['none', mol_nRes mol];
+
+    mol(3)(MOL_RES_STD) = mol(3)(MOL_RES_IDX) = zero natoms;
+    mol(3)(MOL_RES_ALOC) = rep [" ", length natoms];
+
+    mol = mol_aSetPos [mol, A[[9,10,11]] ];
+
+	// Catch old-style 4 character hydrogens ...
+
+#if 0
+    m = m_findmatch ['#H##', A(3)];
+    A(3) = mput [A(3), m, app token app rotl app string (A(3) | m)];
+#endif
+
+    mol(4)(MOL_ATOM_NAME)      = A(3);
+    mol(4)(MOL_ATOM_EL)	       = aname2ele app string A(18);
+    mol(4)(MOL_ATOM_GEOM)      = ele2hyb mol_aEle mol;
+    mol(4)(MOL_ATOM_BONDS)     = rep [[], add natoms];
+    mol(4)(MOL_ATOM_ION)       =
+    mol(4)(MOL_ATOM_HINTLP)    =
+    mol(4)(MOL_ATOM_CHARGE)    =
+    mol(4)(MOL_ATOM_CHIRALITY) =
+    mol(4)(MOL_ATOM_BACKBONE)  = zero A(3);
+
+	// These extension columns must be removed before any mol_Create.
+
+    A(18) = app token app trim_ws A(18);
+
+    mol(4)(MOL_ATOM_LITERAL) = A(18);		// literal atom name
+    mol(4)(MOL_ATOM_ORDER)   = A(19);		// original order
+    mol(4)(MOL_ATOM_SERIAL)  = A(2);		// atom serial number
+    mol(4)(MOL_ATOM_ALOC)    = A(4);		// alternate location char
+    mol(4)(MOL_ATOM_OCC)     = A(12);		// occupancy
+    mol(4)(MOL_ATOM_TEMP)    = A(13);		// temp factor
+    mol(4)(MOL_ATOM_ELCOL)   = A(15);		// pdb element col
+    mol(4)(MOL_ATOM_QCOL)    = A(16);		// pdb charge col
+    mol(4)(MOL_ATOM_REC)     = A(1);		// record type
+    mol(4)(MOL_ATOM_ACTIVE)  = one A(3);	// will be 0 for unchosen alts
+    mol(4)(MOL_ATOM_CTABH)   = - one A(3);
+
+	// Split "large" numbers of trailing waters into a new chain.
+
+    if not anytrue opt.preserve_order then
+	m = is_water_res mol_rName mol;
+	local n = btoc m;
+	m = not m(1) and m and x_id m >= first (n >= 12);
+	if orE m then
+	    mol = mol_Cat [mol_rMask [mol, not m], mol_rMask [mol, m]];
+	endif
+    endif
+
+    return mol;
+endfunction
+
+// ============= global: fread_PDB_model =====================================
+
+local function mol_RestoreOrder [chain_data, mol]
+    local x1 = mol(4)(MOL_ATOM_ORDER);
+    local x2 = mol(3)(MOL_RES_IDX);
+
+    mol(4) = append [mol(4), stretch [x2, mol_nAtoms mol]];
+    mol = mol_aPermute [mol, x_sort x1];
+    mol(3) = apt get [mol(3), [x_sort x2]];
+    mol(3) = mol(3) || [m_uniq mol(3)(MOL_RES_IDX)];
+    local n = mol(3)(MOL_RES_NATOMS);
+    n | n > 0 = mtoc m_uniq last mol(4);
+    mol(3)(MOL_RES_NATOMS) = n;
+    mol(2) = chain_data;
+
+    return mol;
+endfunction
+
+const ATOM_ATTR = [
+    'B_factor',
+    'occupancy',
+    'atom_serial',
+    'active',
+    'alt_loc',
+    'crystal_contacts'
+];
+
+const ATOM_AREA_FMT =
+    '{t:6}{n:5}{c:X}{t:4}{c:1}{t:3}{c:X}{c:1}{n:4}{c:}{c:X}'
+;
+const ATOM_FMT = tok_cat [
+    ATOM_AREA_FMT,
+    '{c:*2X}{n:8}{n:8}{n:8}{n:6}{n:6}{c:*10}{t:2}{n:1}{c:1}'
+];
+const ANISOU_FMT = tok_cat [
+    ATOM_AREA_FMT,
+    '{n:7}{n:7}{n:7}{n:7}{n:7}{n:7}{c:*2X}{t:4}{t:2}{t:2}'
+];
+
+global function myfread_PDB_model [file, first_line, opt]
+    opt = tagcat [opt, FREAD_PDB_DEFAULTS];
+
+    local fnum = file;
+    if type file == 'tok' then
+	fnum = fopenr file;
+    endif
+
+    if isnull first_line then first_line = freadb [fnum, 'line', 1]; endif
+    if isnull first_line then return [mol:mol_Extract[]]; endif;
+
+    const PDB_MAX = 99999;  // Supposedly, though see 3k1q, 3o5h (& user files)
+
+    local atoms = rep [[], PDB_MAX];
+    local anisou = atoms, sigatm = atoms, siguij = atoms;
+    local chain = zero atoms, anames = rep ['', PDB_MAX];
+    local conect = rep [[], PDB_MAX], iC = 0;
+    local ichain = 1, prev_chain = 0, i = 0, j = 0, l = 0, k = 0;
+    local L = first_line;
+
+    loop
+	if isnull (L = first L) then continue; endif;
+
+	if length L < 80 then L = cat [L, rep [" ", 80 - length L]]; endif
+	local R = first sread [L, '{t:6}'];
+
+	if R == 'ATOM' or R == 'HETATM' then
+	    local data = first sread [L, ATOM_FMT];
+
+	    if not eqL [prev_chain, data(6)] then   // chain letter changed ...
+		ichain = inc ichain;		    // ... so new chain
+		prev_chain = data(6);
+	    endif
+
+	    if (i = inc i) > length atoms then
+		anames = cat [anames, rep ['', PDB_MAX]];
+		atoms  = cat [atoms,  rep [[], PDB_MAX]];
+		chain  = cat [chain,  rep [0,  PDB_MAX]];
+	    endif
+
+	    atoms(i)  = data;
+	    anames(i) = token L[[13,14,15,16]];
+	    chain(i)  = ichain;
+
+	elseif R == 'SIGATM' then
+	    if (j = inc j) > length sigatm then
+		sigatm = cat [sigatm, rep [[], PDB_MAX]];
+	    endif
+	    sigatm(j) = first sread [L, ATOM_FMT];
+
+	elseif R == 'ANISOU' then
+	    if (k = inc k) > length anisou then
+		anisou = cat [anisou, rep [[], PDB_MAX]];
+	    endif
+	    anisou(k) = first sread [L, ANISOU_FMT];
+
+	elseif R == 'SIGUIJ' then
+	    if (l = inc l) > length siguij then
+		siguij = cat [siguij, rep [[], PDB_MAX]];
+	    endif
+	    siguij(l) = first sread [L, ANISOU_FMT];
+
+	elseif R == 'TER' then
+	    prev_chain = 0;			// new chain
+
+	elseif R == 'CONECT' and allfalse opt.ignore_conect then
+	    if (iC = inc iC) > length conect then
+		conect = cat [conect, rep [[], PDB_MAX]];
+	    endif
+	    conect(iC) = first sread [L, '{c:*6X}{n:5}{n:5*4}'];
+
+	elseif i > 0 and R <> 'REMARK' and indexof [R, TITLE_RECS] then
+	    break;				// BREAK: catenated PDB files
+
+	elseif R == 'ENDMDL' and not anytrue opt.multi_model then
+	    while length (L = freadb [fnum, 'line', 1]) loop
+		if isnull (L = first L) then continue; endif;
+		R = first sread [keep [L, 6], '{t:}'];
+	    until anytrue (R == ['END',TITLE_RECS])
+	    endloop
+	    break;
+
+	elseif indexof [R, ['END','ENDMDL']] then
+	    break;				// one model (spin???)
+	endif
+
+    until isnull (L = freadb [fnum, 'line', 1])	// EOF
+    endloop
+
+    if type file == 'tok' then
+	fclose fnum;
+    endif;
+
+    conect = keep [conect, iC];
+    [atoms, anames, chain] = apt keep [[atoms, anames, chain], [i]];
+    atoms = tr atoms;
+    anames = app string anames;
+
+    if alltrue not isspace app first anames then
+	opt.use_element = 1;
+    endif
+
+    atoms = append [atoms, anames]; anames = [];
+    atoms = append [atoms, x_id first atoms];
+
+    atoms(16) = atoms(16) * select [-1, 1, "-" == atoms(17)];	// formal charge
+    atoms = append [atoms, one atoms(16)];
+
+    local model = [first_line: cat L];
+
+	// Optionally, retain verbatim atom data.
+
+    if anytrue opt.atom_data then
+	model.atom_data = atoms;
+    endif
+
+    local mol = [];
+
+    atoms = split [tr atoms, mtoc m_uniq chain];
+    for i = 1, length atoms loop
+	mol(i) = pack_chain [atoms(i), opt, atoms(i) = []];
+    endloop
+    chain = atoms = [];
+    mol = mol_Cat mol;
+
+    mol(1)(MOL_NAME) = fname file;
+
+	// pack_chain guessed the elements; if the user insists, we use the
+	// element column. PDB 3.2 docs say that the formal charge is not
+	// guaranteed to be correct - but we will apply it anyway. Caveat
+	// emptor.
+
+    if anytrue opt.use_element and alltrue mol(4)(MOL_ATOM_ELCOL) then
+	mol(4)(MOL_ATOM_EL) = safe_elements mol(4)(MOL_ATOM_ELCOL);
+	mol(4)(MOL_ATOM_GEOM) = ele2hyb mol_aEle mol;    // default
+    endif
+
+	// (TBD: We should create a private system here, and
+	// do all work on atom keys.)
+
+	// Create a default mol by picking one set of positions from each
+	// residue.
+
+    mol = mol_AltLoc mol;
+
+    local mask = (
+	mol(4)(MOL_ATOM_ALOC) == " " or
+	str_R2A [mol, mol(3)(MOL_RES_ALOC)] == "*" or
+	mol(4)(MOL_ATOM_ALOC) == str_R2A [mol, mol(3)(MOL_RES_ALOC)]
+    );
+
+    if anyfalse mask then
+	model.alt_mol = mol_aMask [mol, not mask];
+	model.alt_mol = mol_rMask [model.alt_mol, mol_nAtoms model.alt_mol];
+    endif
+
+    mol = mol_aMask [mol, mask];
+
+	// Assign lots of "dictionary" based properties for standard amino
+	// acids & nucleic acids.
+
+    mol = mol_StandardAttributes [mol, opt];	// standard intra-res bonds
+    mol = mol_StandardChemistry mol;		// standard hyb/ion/LP hint
+
+    if length opt.ctab then
+	mol = mol_ApplyCTAB [mol, opt.ctab];	// from REMARK 600
+    endif
+
+    local chain_data = mol(2);
+
+    mol = mol_MicroHet mol;			// sequence microheterogeneity
+    mol = mol_StandardBonds mol;		// std polymer bonds & H's
+
+	// Apply link & conect records, then auto-connect & auto-type.
+
+    local use_links = anytrue opt.use_link;
+    if use_links and length opt.link then
+	[mol, use_links] = mol_ApplyLink [mol, opt.link, 0];
+    endif
+    if allfalse opt.ignore_conect then
+	mol = mol_ApplyConect [mol, conect];
+    endif
+    if anytrue opt.auto_connect then
+	mol = mol_AutoConnect [mol, use_links];
+    endif
+
+    mol = mol_AmberStandardize mol;	// standard hyb/ion/LP hint
+    mol = mol_AutoType mol;
+
+	// Metals after AutoType
+
+    if anytrue opt.use_link and length opt.link then
+	mol = first mol_ApplyLink [mol, opt.link, 1];
+    endif
+    mol = mol_Finalize mol;
+
+	// Place alt loc atoms into mol structure. Chemistry etc will be
+	// copied from corresponding atoms (now typed).
+
+    if anytrue opt.alt_loc and l_length model.alt_mol(4) then
+	mol = mol_InsertAltMol [mol, model.alt_mol];
+    endif
+
+    if anytrue opt.preserve_order then
+	mol = mol_RestoreOrder [chain_data, mol];
+    endif
+
+    model.atom_serial = mol(4)(MOL_ATOM_SERIAL);
+    model.alt_loc     = mol(4)(MOL_ATOM_ALOC);
+    model.occupancy   = mol(4)(MOL_ATOM_OCC);
+    model.B_factor    = mol(4)(MOL_ATOM_TEMP);
+    model.active      = mol(4)(MOL_ATOM_ACTIVE);
+    model.ele_col     = mol(4)(MOL_ATOM_ELCOL);
+
+    model.mol = mol_DropExtend mol;
+
+	// append 1 to the end of these for model number
+
+    anisou = anisou | app length anisou;
+    if length anisou then model.anisou = tr apt cat [anisou, 1]; endif;
+    siguij = siguij | app length siguij;
+    if length siguij then model.siguij = tr apt cat [siguij, 1]; endif;
+    sigatm = sigatm | app length sigatm;
+    if length sigatm then model.sigatm = tr apt cat [sigatm, 1]; endif;
+
+    model.crystal_contacts = zero model.atom_serial;
+
+    return model;
+endfunction
+
+//=============== global: fread_PDB & ReadPDB ================================
+
+local function _pdb_open file
+    local fnum = [], exe_key = [];
+    if type file == 'num' then
+	fnum = file;
+    elseif orE (tolower fext file == ['gz','z','zip']) then
+	exe_key = exe_open_hidden tok_cat [
+	    MOE, '/bin-', MOE_ARCH, '/gzip.exe -dc ',
+	    '"', fabsname file, '"'
+	];
+	fnum = exe_stdout exe_key;
+    else
+	fnum = fopenr file;
+    endif
+    return [fnum, exe_key];
+endfunction
+
+local function _pdb_close [file, fnum, exe_key]
+    if anytrue exe_key then
+	if exe_status exe_key then
+	    freadb [fnum, 'line', INT_MAX];
+	endif
+	loop sleep 0.05; until not exe_status exe_key endloop
+	exe_close exe_key;
+    endif
+    if type file <> 'num' then
+	fclose fnum;
+    endif
+endfunction
+
+global function mypdb_Seqres2Atoms;
+local function pdb_SplitHets;
+global function mypdb_GenerateImages, mypdb_GenerateBiomol, mypdb_CrystalContacts;
+
+global function: myfread_PDB [file, opt]
+    opt = tagcat [opt, FREAD_PDB_DEFAULTS];
+
+    local [fnum, exe_key] = _pdb_open file;   // OPEN
+
+    local [data, line] = myfread_PDB_header [fnum, opt.first_line];
+
+    if anytrue opt.header_only then	    // (obsolete - do not document)
+	_pdb_close [file, fnum, exe_key];   // CLOSE - header only
+	return data;
+    endif
+
+	// Should be conditional defaults : SRC_PDB is strict; MOE is whatever
+	// others are auto'd
+
+    if length findmatch [SRC_MOE_MATCH, app token data.remark.'99'] then
+	opt.use_element = 1;
+	opt.use_link = 1;
+	opt.ignore_conect = 0;
+	opt.auto_connect = 0;
+    elseif length findmatch [SRC_PDB_REMED, token data.format] then
+	opt.use_element = 1;	// remediated PDB
+//	opt.use_link = 0;	// can't quite trust the links & conects yet...
+//	opt.ignore_conect = 0;
+//	opt.auto_connect = 0;
+    endif
+
+    opt.ctab = data.ctab;
+    opt.link = data.link;
+    data.first_line = [];
+    data = tagcat [data, myfread_PDB_model [fnum, line, opt]];
+
+    local i, m, attr;
+
+	// Multiple model handling
+
+    if anytrue opt.multi_model then
+	local imodel = rep [(i = 1), mol_cCount data.mol];
+	while length ([line] = freadb [fnum, 'line', 1]) loop
+	    local v = myfread_PDB_model [fnum, [], opt];
+	    if not mol_rCount v.mol then break; endif;
+
+	    imodel = cat [imodel, rep [i = inc i, mol_cCount v.mol]];
+
+	    data.mol = mol_Cat [data.mol, v.mol];
+
+	    for attr in ATOM_ATTR loop
+		data.(attr) = cat [data.(attr), v.(attr)];
+	    endloop
+
+	    function poke_model_num w
+		if isnull w then return w; endif;
+		return poke [w, length w, rep [i, l_length w]];
+	    endfunction
+
+	    v.atom_data = poke_model_num v.atom_data;
+	    v.anisou    = poke_model_num v.anisou;
+	    v.sigatm    = poke_model_num v.sigatm;
+	    v.siguij    = poke_model_num v.siguij;
+
+	    data.atom_data  = apt cat [data.atom_data, v.atom_data];
+	    data.siguij     = apt cat [data.siguij,    v.siguij   ];
+	    data.sigatm     = apt cat [data.sigatm,    v.sigatm   ];
+	    data.anisou     = apt cat [data.anisou,    v.anisou   ];
+	endloop
+	data.model_num = imodel;
+    endif
+
+    _pdb_close [file, fnum, exe_key];	// CLOSE
+
+	// Collate SEQRES data with residue names in atom data. The
+	// number of chains can change here if there are SEQRES records for
+	// entirely unobserved chains.
+	// TBD: fasta
+
+    if anytrue opt.collate_res and anytrue data.seqres then
+	local models = [], i_model = data.model_num;
+	if isnull i_model then i_model = rep [1, mol_cCount data.mol]; endif;
+
+	for i in uniq i_model loop
+	    m = i == i_model;
+	    models(i) = mypdb_Seqres2Atoms [data, mol_cMask [data.mol, m]];
+	endloop
+	if length data.model_num then
+	    data.model_num = stretch [x_id models, app mol_cCount models];
+	endif
+	data.mol = mol_Cat models; models = [];
+    endif
+
+	// Construct chain tag, name & header
+
+    local cT = token data.code;
+    if opt.chain_tag === 'filename' then
+	cT = ftail fname file;
+    elseif isnull opt.chain_tag or opt.chain_tag === 'auto' then
+	if allfalse cT then cT = ftail fname file; endif
+    else
+	cT = opt.chain_tag;
+    endif
+
+    local mol_name = cT;
+    if length data.model_num then
+	cT = tok_cat [cT, '_', totok data.model_num];
+    else
+	cT = rep [cT, mol_cCount data.mol];
+    endif
+
+    local cN = mol_cName data.mol;
+    data.chain_id = app string cN;
+    cN = select [cT, tok_cat [cT, '.', cN], cN == ' ' or cN  == ''];
+    data.chain_id = mput [data.chain_id, app isnull data.chain_id, " "];
+
+    local cH = app token app trim_ws app string mol_cHdr data.mol;
+    cH | cH == '' = token data.header;
+
+    local mol = data.mol;
+    mol(1)(MOL_NAME) = mol_name;
+    mol(2)(MOL_CHAIN_TAG)    = cT;
+    mol(2)(MOL_CHAIN_NAME)   = cN;
+    mol(2)(MOL_CHAIN_HEADER) = cH;
+
+	// Apply strip solvent etc options. (Store extra data in mol for
+	// mol_xMask functions to handle.)
+
+    for attr in ATOM_ATTR loop
+	mol(4) = append [mol(4), data.(attr)];
+    endloop
+
+    if anytrue opt.ignore_hoh then
+	m = not is_water_res mol_rName mol;
+	mol = mol_rMask [mol, m];
+	mol = mol_cMask [mol, mol_nRes mol];
+    endif
+    if anytrue opt.ignore_hetero then
+	m = mol_rType mol <> 'none';
+	mol = mol_rMask [mol, m];
+	mol = mol_cMask [mol, mol_nRes mol];
+    endif
+    if not anytrue opt.save_variants then
+	mol = mol_cMask [mol, mol_cHdr mol <> 'Sequence Variants'];
+	mol = mol_aMask [mol, mol(4)(MOL_ATOM_ACTIVE)];
+    endif
+
+    i = inc length mol(4);
+    for attr in reverse ATOM_ATTR loop
+	data.(attr) = mol(4)(i = dec i);
+    endloop
+
+    data.mol = mol_DropExtend mol; mol = [];
+
+    if anytrue opt.split_hets then
+	data = pdb_SplitHets data;
+    endif
+
+	// Non-crystallographic symmetry and the biomolecules are logically
+	// mutually exclusive, but our options do not enforce that.
+
+    if anytrue opt.gen_symm or anytrue opt.crystal_contacts then
+	data = mypdb_GenerateImages data;
+    endif
+    if anytrue opt.crystal_contacts then
+	data = mypdb_CrystalContacts [data, opt];
+    endif
+    if anytrue opt.gen_biomt or anytrue opt.biomol then
+	data = mypdb_GenerateBiomol [data, tagcat [opt, [biomol:1]]];
+    endif
+
+    return data;
+endfunction
+
+global function: myReadPDB [file, opt]
+    opt = tagcat [opt, READ_PDB_DEFAULTS, FREAD_PDB_DEFAULTS];
+
+    local [fnum, exe_key] = _pdb_open file;   // OPEN
+    local chains = [], space_group = [], dim = [], ang = [];
+
+    loop
+	local data = myfread_PDB [fnum, opt];
+	if mol_cCount data.mol <= 0 then break; endif;
+	space_group = data.space_group;
+	[dim, ang] = split [data.unit_cell, 3];
+
+	local prio = task_prio 0;
+	local [hbState, vdwState] = [DrawHBonds 0, DrawVDWContacts 0];
+
+	local C = mol_Create data.mol;
+	local A = cat cAtoms C;
+
+	chains = cat [chains, C];
+
+	aSetOccupancy [A, data.occupancy];
+
+	if length data.active then
+	    aSetInert [A, not data.active];
+	endif
+
+	if anytrue opt.use_charges then
+	    aSetCharge [A, data.B_factor];
+	else
+	    aSetTempFactor [A, data.B_factor];
+	endif
+
+	local c;
+	for c in sortuniq diff [data.alt_loc, " "] loop
+	    local mask = data.alt_loc == c;
+	    oAppendSet [tok_cat ['PDB_ALTLOC_', token c], A | mask];
+	endloop
+
+	if length data.crystal_contacts then
+	    oAppendSet ['PDB_CrystalContacts', A | data.crystal_contacts];
+	endif
+
+	if length data.crystal_shell then
+	    A = cat oAtoms (c = mol_Create data.crystal_shell);
+
+	    aSetColorBy [A, select ['rgb', 'element', 'C' == aElement A]];
+	    aSetRGB [A | 'C' == aElement A, icolor 'Green'];
+	    chains = cat [chains, c];
+	endif
+
+	DrawHBonds hbState; DrawVDWContacts vdwState;
+	task_prio prio;
+
+	if not anytrue opt.multi_entry then break; endif;
+	if isnull data.first_line then break; endif;
+	opt.first_line = data.first_line;
+    endloop
+
+    _pdb_close [file, fnum, exe_key];	// CLOSE
+
+    if anytrue [opt.install_cryst, opt.gen_symm] and anytrue space_group then
+	local spg = crys_StandardShortGroup [space_group, dim, ang];
+
+	    // RCSB defaults
+
+	if dim === [0,0,0] then dim = [1,1,1]; endif;
+	if ang === [0,0,0] then ang = [90,90,90]; endif;
+
+	CellEnable 0;
+	CellLatticeReplicate [1,1,1];
+	CellCoordinateMode 'normal';
+	CellParameters [spg, dim, ang];
+    endif
+
+    if not call[] then
+	if anytrue opt.return_data then
+	    return data;
+	else
+	    return chains;
+	endif
+    endif
+endfunction
+
+//===================== AMBERIZATION for writing ==============================
+
+// We check cysteines, titratable amino acids and monoatomic ion species
+// to conform residue names and hydrogen names to AMBER expectations.
+
+local function AmberizeIons R
+    const AMBER94_IONS = tr [Li:1,Na:1,K:1,Rb:1,Cs:1,Cl:-1, Mg:2];
+    local A = rAtoms (R | 1 == oChildCount R);
+    local x = indexof [aElement A, AMBER94_IONS(1)];
+    A = A | x;
+    A = A | aIon A == AMBER94_IONS(2)[pack x];
+
+    local name = tok_cat [aElement A, ['-','+'][inc (0 < aIon A)]];
+    name | 'Mg' == aElement A = 'MG2';
+    aSetName [A, 'MG'];
+    rSetName [oParent A, 'MG2'];
+endfunction
+
+local function AmberizeTitratable R
+    R = R | pro_AtomCheck R;
+    local X = indexof [rLetter R, "KDEHC"];
+    R = R | X; X = pack X;
+
+    local L = rLetter R;
+    local A = oChildren R; A = A || not (aIsLight A or aBackbone A);
+    local I = app add aIon A;
+    local N = rName R;
+
+    const AMBER_NEUTRAL = ['LYN', 'ASH', 'GLH'];
+    local m = I == 0 and X <= 3;
+    local x = X | m;
+    N | m = AMBER_NEUTRAL[X|m];
+
+    N | X == 4 and I == 1 = 'HIP';
+    m = I == 0 and X == 4 and aElement A == 'N' and aHydrogens A;
+    m = m and (app add m == 1);
+    N | app add m = select ['HID', 'HIE', aName cat (A || m) == 'ND1'];
+
+    local cys = R | X == 5;
+    A = cat oChildren cys; A = A | aName A == 'SG';
+    local hv = aHeavyValence A;
+
+    local cym = uniq oParent (A | hv == 1 and aIon A == -1);
+    N[indexof [cym, R]] = 'CYM';
+
+    A = A | hv == 2;
+    local B = aBonds A;
+    B = B || rLetter oParent B == "C" and aName B == 'SG';
+
+    local cyx = uniq oParent cat B;
+    N[indexof [cyx, R]] = 'CYX';
+
+    rSetName [R, N];
+endfunction
+
+local function AmberizeNeutralVariants R
+    R = R | indexof [rName R, ['LYN','GLH','ASH']];
+    local A = cat oChildren R;
+    local an = aName A;
+    local rn = rName oParent A;
+    local ion = aIon A;
+    local x, m, a1, a2;
+
+    m = an == 'HZ1' and rn == 'LYN';
+    if length (x = x_pack m) then   // LYN promises atom check?
+	an[x] = 'HZ3';		    // clear any formal charge?
+    endif
+
+    //m = an == 'HE2' and rn == 'GLH';
+    //if length (x = x_pack m) then
+	//an[x] = 'HE1';
+	//a1 = aBonds A[x];
+	//an[x = indexof [a1, A]] = 'OE1';
+	//ion[x] = 0;
+	//a1 = aBonds a1;
+	//a1 = a1 || aName a1 == 'CD';
+	//a1 = aBonds a1;
+    //	a1 = a1 || aName a1 == 'OE1';
+	//an[x = indexof [a1, A]] = 'OE2';
+	//ion[x] = 0;
+    //endif
+
+    m = an == 'HD2' and rn == 'ASH';
+    if length (x = x_pack m) then
+	an[x] = 'HD1';
+	a1 = aBonds A[x];
+	an[x = indexof [a1, A]] = 'OD1';
+	ion[x] = 0;
+	a1 = aBonds a1;
+	a1 = a1 || aName a1 == 'CG';
+	a1 = aBonds a1;
+    	a1 = a1 || aName a1 == 'OD1';
+	an[x = indexof [a1, A]] = 'OD2';
+	ion[x] = 0;
+    endif
+
+    aSetName [A, an];
+    aSetIon [A, ion];
+endfunction
+
+local function AmberizeCaps R
+    local A = cat rAtoms (R | indexof [rName R, ['ACE','NME']]);
+    local m = 'CA' == aName A;
+    aSetName [A | m, 'CH3'];
+endfunction
+
+local function Amberize R;
+    AmberizeTitratable R;
+    AmberizeNeutralVariants R;
+    AmberizeIons R;
+    AmberizeCaps R;
+endfunction
+
+//============= Choices for writing tfactor/occupancy fields ==================
+
+local function GetAtomProperty [atoms, atom_property]
+
+    if	   atom_property === 'charge' then
+	atom_property = aCharge atoms;
+
+    elseif atom_property === 'radius' then
+	atom_property = aRadius atoms;
+
+    elseif atom_property === 'slogp' then
+	atom_property = aSlogP atoms;
+
+    elseif atom_property === 'surface_area' then
+	atom_property = AtomSurfaceArea [atoms];
+
+    elseif atom_property === 'vsa' then
+	atom_property = aIdealVSA atoms;
+
+    elseif atom_property === 'force' then
+	local x = indexof [atoms, Atoms []];
+	atom_property = (log maxE [0.001, norm (Potential[])(2)])[x];
+
+    elseif atom_property === 'scalar' then
+	atom_property = aScalar atoms;
+
+    elseif atom_property === 'tempfactor' then
+	atom_property = aTempFactor atoms;
+
+    elseif atom_property === 'occupancy' then
+	atom_property = aOccupancy atoms;
+
+    elseif not isflatnum atom_property then
+	exit 'Vector of wrong type (occupancy or temp factor)';
+    endif
+
+    return atom_property;
+endfunction
+
+//============= Re-naming atoms (mostly hydrogens..) =========================
+
+// Defaults to PDB v3.* rules, which are identical to IUPAC 1998
+// except for C-term COO(H) & amide hydrogens
+//
+//  for IUPAC : HXT => H'', OXT -> O'' and O in COO(H) goes to O; amide H => HN
+//  for PDB (pre v3): write hnumber into column1 pre v3)
+//
+// NOTE : nothing done with I/V/R, should check that rules are followed....
+
+// Need to check fc : LYS:NZ, ARG:NH2;
+// GLU has neutral form, but puts H on E2; ASP on D2
+// so, if aIon OD2 == 0 and OD1 = -1, swap; similiarly for D2, H2.
+// (NE move to CZ). Restrict to sum of 1. Lysines should never be wrong...
+
+local function StandardizeHydrogenNames [atoms, opt]
+    local H = atoms | rIsAmino oParent atoms and aElement atoms == 'H';
+    if isnull H then return; endif;	    // Nothing to do.
+
+    local B = aBonds H;
+
+	// host name: element in C,N,O,S - second char in '', B, G, D, E, Z, H
+	// number from keep [igen 3, - Hcount]
+	// special case : OXT hydrogen goes to HXT or H\'
+	// special case : HYP.OD(1)-H goes to OD.HOD (old), OD1.HD1 (current);
+	//		    HYP.CD1-HD21,HD22 (new) HYP.CD.HD1,HD2 (old)
+
+    [H,B] = [H,B] || [app length B == 1];
+    [H,B] = [H,B] || [not aIsLight B];
+
+	// Avoid re-naming unnecessarily.
+
+    [H,B] = apt get [[H,B], [x_sort aName H]];
+    [H,B] = apt get [[H,B], [x_sort B]];
+
+	// Pick-up the names, elements, remoteness indicators & branch codes
+
+    local an = app string aName B;
+    local el = app first an;
+    local RI = app token app second an;		// remoteness indicator
+    local BC = atoi app token app third an;	// branch code
+
+    [H,B,RI,BC] = [H,B,RI,BC] || [ andE [
+	indexof [el, "CNOS"],
+	aElement B == app token el,
+	indexof [RI, ['','A','B','G','D','E','Z','H']]
+    ]];
+
+    BC = select [totok BC, '',  BC > 0];
+
+    local [x,n] = sac B;
+    [H,B,RI,BC] = apt get [[H,B,RI,BC], [x]];
+    local Hnum = cat app igen n;
+
+    local hvA = aBonds H;	// attached heavy atom
+
+	// "Old" PDB always starts numbering hydrogens at 1, everybody
+	// else starts at the heavy valence, unless there is only one
+	// in which case there is no number.
+
+    if not (opt.hnames === 'PDB') then
+	Hnum = Hnum + (aHeavyValence hvA == 2);
+    endif
+    Hnum = select ['', totok Hnum, 1 == stretch [n, n]];
+
+    local Hnames = ['H', RI, BC, Hnum];
+    if opt.hnames === 'PDB' then
+	Hnames = rotr Hnames;		// !!! Does not apply to data_HYP
+    endif
+    Hnames = tok_cat Hnames;
+
+	// Should specifically match an amide H here. The 'H' says
+	// there is only one attached hydrogen.
+
+    if opt.hnames === 'IUPAC' then
+	local m = aName hvA == 'N' and aIon hvA == 0 and Hnames == 'H';
+	Hnames | m = 'HN';
+    endif
+
+    Hnames | aName hvA == 'C' = 'HC';	// had to invent something
+
+    local anames = put [aName atoms, indexof [H, atoms],  Hnames];
+    local oxt = atoms | anames == 'OXT' and rIsAmino oParent atoms;
+    local hxt = aBonds oxt; hxt = hxt || aElement hxt == 'H';
+    hxt = pack indexof [hxt, atoms];
+
+    if opt.hnames === 'IUPAC' then
+	anames[hxt] = 'H\'';
+    else
+	anames[hxt] = 'HXT';
+    endif
+
+    aSetName [atoms, anames];
+endfunction
+
+//========== RCSB atom order =================================================
+
+// There is no directive in any version of the RCSB format documentation
+// specifing the order that amino acid sidechain atoms are to be written,
+// however all PDB files write atoms in the table order, with hydrogens after
+// all of the heavy atoms, in the the same order as their heavy atoms.
+// There are some programs that complain if this order is not followed.
+
+const AMINO_ATOM_ORDER = reverse [
+    'N','CA','C','O',
+    'CB',
+    'CG','SG','CG1','CG2','OG','OG1',
+    'CD','OD1','OD2','ND1','ND2','CD1','CD2','SD','OD',
+    'NE','NE1','NE2','OE1','OE2','CE','CE1','CE2','CE3',
+    'CZ','CZ2','CZ3','NZ',
+    'NH1','NH2','OH','CH2','OXT'
+];
+
+local function x_rcsb_atom_order [A, A_names]
+    local R = oParent A;
+
+    local anames = A_names;
+    local m = aElement A == 'H' and aBondCount A == 1 and rIsAmino R;
+    anames | m = A_names [indexof [aBonds (A | m), A]];
+
+    local idx = x_id A;
+    idx = idx[x_sort select [A_names, '',  m]];
+    idx = idx[x_sort neg (indexof [anames[idx], AMINO_ATOM_ORDER] * m[idx])];
+    idx = idx[x_sort (1 >= aAtomicNumber A[idx])];
+    idx = idx[x_sort indexof [oParent A[idx], uniq R]];
+
+    return idx;
+endfunction
+
+// Prepares 4-character atom name. If the element name matches the beginning
+// of the atom name then we right justify them in positions one and two.
+
+local function RCSB_FormatAtomNames [an, el]
+    local n = tok_length el;
+    local m = eqE toupper [tok_keep [an, n], el] and tok_length an < 4;
+    an | m = apt twrite ['{t:2}{t:-2}', el|m, tok_drop ([an,n] || [m])];
+    return an;
+endfunction
+
+local function IonTotok  ion
+    local m = ion <> 0 and abs ion < 10;
+    ion = ion | m;
+    local t = tok_cat [totok abs ion,  select ['+', '-', ion > 0]];
+    return unpack [t, '  ', m];
+endfunction
+
+// Writing HELIX & SHEET records. Note that this implementation is incomplete:
+// SHEET records do not include the sheet numbers, or the sense & register
+// & hbond info - one hopes that graphics programs generally don't need it...
+
+const HELIX_CLASS = [ 'helix-left':6, '3-10-helix':5, 'helix':1, 'pi-helix':3 ];
+const HELIX_FMT = tok_cat ['HELIX  {n:3} {n:3} ',
+    '{t:3} {c:} {n:4}{c:} {t:3} {c:} {n:4}{c:}{n:2}{t:31}{n:5}\n'
+];
+const SHEET_FMT = tok_cat ['SHEET  {n:3}     ',
+    '  {t:3} {c:}{n:4}{c:} {t:3} {c:}{n:4}{c:} {t:32}\n'
+];
+
+local function WriteHelix [fkey, res, seg_type, chain_id]
+    local x = tagget [HELIX_CLASS, seg_type];
+    [res, chain_id] = [res, chain_id] || nest app length x; x = cat x;
+    local r1 = app first res;
+    local r2 = app last res;
+    local ser_num = x_id r1;
+    apt fwrite [fkey, HELIX_FMT,  ser_num, ser_num,
+	rName r1, chain_id, rUID r1, rINS r1,
+	rName r2, chain_id, rUID r2, rINS r2,
+	x,
+	'Generated by MOE', app length res
+    ];
+endfunction
+
+local function WriteSheet [fkey, res, seg_type, chain_id]
+    [res, chain_id] = [res, chain_id] || [m_findmatch ['*strand*', seg_type]];
+    local r1 = app first res;
+    local r2 = app last res;
+    local ser_num = x_id r1;
+    apt fwrite [fkey, SHEET_FMT,  ser_num,
+	rName r1, chain_id, rUID r1, rINS r1,
+	rName r2, chain_id, rUID r2, rINS r2,
+	'Generated by MOE', app length res
+    ];
+endfunction
+
+local function WriteStruct [fkey, res, chain_id]
+    local seg = rActualSegment res;
+    local m = indexof  [seg, cat [tags HELIX_CLASS, ['strand','anti-strand']]];
+    local n = btoc m;
+    [res, chain_id] = apt split [[res, chain_id], [n]];
+    [res, chain_id] = [res, chain_id] || [app first split [m, n]];
+
+    n = cat app mtoc not apt cat [app pro_PeptideFlags res, 1];
+    [res, chain_id] = apt split [app cat [res, chain_id], [n]];
+
+    seg = rActualSegment app first res;
+    chain_id = app first chain_id;
+
+    WriteHelix [fkey, res, seg, chain_id];
+    WriteSheet [fkey, res, seg, chain_id];
+endfunction
+
+local function WriteCryst [fkey, R, opt]
+    local crys = opt.cryst1;
+    if isnull crys then
+	const UNIT_CELL_TAGS = ['unit_cell','space_group','space_group_Z'];
+	crys = cat tagget [opt, UNIT_CELL_TAGS];
+    elseif isscalar crys then
+	local [group, dim, ang] = CellParameters[];
+	group = SPACEGROUP_LONGNAME(indexof [group, SPACEGROUP_NAME]);
+	crys = cat [dim, ang, group];
+    endif
+
+    if isflatnum keep [crys, 6] and isflattok crys(7) then
+	local x = crys_GetGroupIndex crys_StandardShortGroup group;
+	local n_pep = add (app alltrue rIsAmino R and 24 <= app length R);
+	local n_nuc = add app alltrue rIsNucleic R;
+	local n_poly = max [1, n_pep, n_nuc];
+	fwrite cat [ fkey,
+	    'CRYST1'
+	    '{n:9.3f}{n:9.3f}{n:9.3f}{n:7.2f}{n:7.2f}{n:7.2f} {t:-11}{n:4}\n',
+	    crys, inc length SPACEGROUP_SYMMETRY(x)
+	];
+    else
+	exit 'Invalid format for Crystal Parameters';
+    endif
+endfunction
+
+local function WriteSeqres [fkey, R, C_id]
+    local m = app alltrue rIsAmino R and not app alltrue oChildCount R;
+    [R, C_id] = [R, C_id] || [m];
+    [R, C_id] = [R, C_id] || [m_uniq C_id];
+
+    local i;
+    for i = 1, length R loop
+	local rn = split [rName R(i), 13];
+	apt fwrite [fkey,
+	    'SEQRES  {n:2} {c:1} {n:4}  {t:3}\n',
+	    x_id rn, C_id(i), length R(i), rn
+	];
+    endloop
+endfunction
+
+//============= Links & Conects ===============================================
+
+local function bIsDisulfide b
+    local r = oParent b;
+    local m = not eqE r and andE rIsAmino r;
+    r = r || [m]; b = b || [m];
+    return mput [m, m, andE ('CYS' == rName r) and andE ('SG' == aName b)];
+endfunction
+
+local function bIsStandardPoly b
+    local r = oParent b;
+    local m = eqE oParent r and 1 == abs sub rNumber r;
+    r = r || [m]; b = b || [m];
+    local a = aName b;
+    local n = sub rNumber r;
+    local pep = andE rIsAmino r;
+    local nuc = andE rIsNucleic r;
+    return mput [m, m, orE [
+	pep and a(1) == 'C' and a(2) == 'N' and n == -1,
+	pep and a(2) == 'C' and a(1) == 'N' and n ==  1,
+	nuc and a(2) == 'P' and n == -1 and indexof [a(1), ['O3\*','O3\'']],
+	nuc and a(1) == 'P' and n ==  1 and indexof [a(2), ['O3\*','O3\'']]
+    ]];
+endfunction
+
+local function WriteDisulfide [fkey, B, A, C_id]
+    local x = apt indexof [B, [A]];
+    local m = ltE x;
+    B = B || [m]; x = x || [m];
+    C_id = apt get [[C_id], x];
+
+    local R = oParent B;
+
+    apt fwrite [fkey,
+	'SSBOND {n:3} CYS {}{}{n:4}    CYS {}{}{n:4}'
+	'			     1555   1555 {n:5.2f}\n',
+	x_id first B,
+	C_id(1), rINS R(1), rUID R(1),
+	C_id(2), rINS R(2), rUID R(2), aDist B
+    ];
+endfunction
+
+local function WriteLinkAndDisulfide [fkey, A, A_id, C_id, R_name, amberF]
+    local B = BondListExclusive A;
+    B = B || [not eqE oParent B and not bIsStandardPoly B];
+
+    local x, m;
+    if not anytrue amberF then
+	m = bIsDisulfide B;
+	WriteDisulfide [fkey, B || [m], A, C_id];
+	B = B || [not m];
+    endif
+    x = apt indexof [B, [A]];
+    m = ltE x;
+    x = x || [m]; B = B || [m];
+
+    C_id  = apt get [[C_id], x];
+    local R = oParent B;
+    const LINK_FMT =
+	'LINK        '
+	'{t:-4}{c:1}{t:3} {c:1}{n:4}{c:1}'
+	'               '
+	'{t:-4}{c:1}{t:3} {c:1}{n:4}{c:1}'
+	'    1555   1555 '
+	'{n:5.2f}\n'
+    ;
+    apt fwrite [fkey,
+	LINK_FMT,
+	RCSB_FormatAtomNames [aName B(1), aElement B(1)],
+	aAltLoc B(1), rName R(1), C_id(1), rUID R(1), rINS R(1),
+	RCSB_FormatAtomNames  [aName B(2), aElement B(2)],
+	aAltLoc B(2), rName R(2), C_id(2), rUID R(2), rINS R(2),
+	aDist B
+    ];
+endfunction
+
+// We write all inter-residue conects excepting standard polymer bonds;
+// even those for which LINK & SSBOND records are written. PDB is still
+// doing this.
+
+local function WriteConect [fkey, atoms, atom_id]
+    local B = BondListExclusive atoms;
+    local R = uniq oParent first B;
+    local m = eqE oParent B and indexof [oParent first B, R | pro_AtomCheck R];
+    B = B || [not m];
+    B = B || [not bIsStandardPoly B];
+    B = apt stretch [B, [bOrder B]];
+
+    B = apt get [[atom_id], apt indexof [B, [atoms]]];
+
+    m = m_uniq first B;
+    B = [B(1) | m, split [B(2), mtoc m]];
+    apt fwrite [fkey, 'CONECT{n:5}{|!n:5}\n', B(1), B(2)];
+endfunction
+
+//============ global: fwrite_PDB and WritePDB ===============================
+
+local function TidyUID;
+
+// TBD: adjust ionization here for ARG : NH2 is pdb standard, and some
+// software complains if the charge is anywhere else.
+
+local function fwrite_PDB_atoms [fkey, res, atoms, opt]
+    local i, m, x;
+
+	// Push the system.
+
+    local nres = app length res;
+    local [psys, csys, cobj] = SystemPush cat [cat res, atoms];
+
+    [res, atoms] = split [cobj, cat [add nres, length atoms]];
+    res = split [res, nres];
+
+	// Get values & precision to write in TempFactor & Occupancy fields.
+
+    local occupancy = opt.occupancy, occupancy_fmt = '{n:6.2f}';
+    if isnull occupancy then
+	occupancy = aOccupancy atoms;
+    else
+	occupancy = GetAtomProperty [atoms, occupancy];
+	occupancy_fmt = '{n:6.3f}';
+    endif
+
+    local tfactor = opt.atom_prop, tfactor_fmt = '{n:6.2f}';
+    if isnull tfactor then
+	tfactor = aTempFactor atoms;
+    else
+	tfactor = GetAtomProperty [atoms, tfactor];
+	tfactor_fmt = '{n:6.3f}';
+    endif
+
+    local atom_format = tok_cat [
+	'{t:-6}{n:5} {t:-4}{c:1}{t:3} {c:1}{n:4}{c:1}   ',
+	'{n:8.3f}{n:8.3f}{n:8.3f}', occupancy_fmt, tfactor_fmt,
+	'          {t:2}{t:2}\n'
+    ];
+
+    if anytrue opt.scale_atom_prop then	// scale tfactor on range [0,100]
+	local [vl,vh] = [min tfactor, max tfactor];
+	tfactor = (tfactor - vl) * invz (vh - vl) * 100;
+    endif
+
+	// Get chain letters.
+
+    local C = rep [" ", length nres];
+
+    if anytrue opt.use_chain_id then
+	C = cLetter oParent app first res;
+    endif
+
+	// Set hydrogen names & amberize, if asked.
+
+    if anytrue opt.hnames then StandardizeHydrogenNames [atoms, opt]; endif;
+    if anytrue opt.amber then Amberize cat res; endif;
+
+	// SEQRES: done after Amberize, which can change residue names.
+
+    WriteSeqres [fkey, res, C];
+
+	// HELIX, SHEET
+
+    local C_res = stretch [C, app length res];
+    WriteStruct [fkey, cat res, C_res];
+
+	// LINK, SSBOND
+
+    x = indexof [oParent atoms, cat res];
+    WriteLinkAndDisulfide [
+	fkey, atoms, (cat res)[x], C_res[x], x, opt.amber
+    ];
+
+	// CRYST1
+
+    if anytrue opt.cryst1 or anytrue opt.unit_cell then
+	WriteCryst [fkey, res, opt];
+    endif
+
+	// Coordinates
+
+    local anum = 0, atom_key = [], atom_id = []; // accumulators for CONECTs
+
+    for i = 1, length res loop
+	local r = res(i);
+	local a = cat oChildren r;
+
+	local uid = rUID r;
+	local ins = rINS r;
+
+	if length r > 1 and allfalse uid and alltrue (ins == " ") then
+	    uid = x_id r;
+	else
+	    m = not m_uniq tr [rName r, uid, ins];
+	    if anytrue m then
+		[uid, ins] = TidyUID [rName r, uid, ins, m];
+	    endif
+	endif
+
+	local aname = aName a;
+	if tok_keep [opt.hnames, 3] === 'PDB' then
+	    x = x_rcsb_atom_order [a, aname];
+	    [a, aname] = apt get [[a, aname], [x]];
+	endif
+
+	x = indexof [a, atoms];
+	local n = s_add [x > 0, oChildCount r];
+	[uid,ins,r] = apt stretch [[uid,ins,r], [n]];
+	[a, aname] = [a, aname] || [x]; x = pack x;
+
+	local ion = aIon a;
+
+	    // Want better test - but check AMBER requirements
+
+	local record = select ['ATOM', 'HETATM', rType r <> 'none'];
+	local a_idx  = anum + x_id a;	// atom serial #
+
+	local el = aUnitedElement a;    // converts upper-case too
+
+	aname = RCSB_FormatAtomNames [aname, el];
+	local [X,Y,Z] = aPos a;
+
+	apt fwrite [ fkey, atom_format,
+	    record,			// ATOM or HETATM
+	    a_idx,			// atom serial #
+	    aname,			// RCSB-formatted atom name
+	    aAltLoc a,			// alternate location indicator
+	    rName r,			// three-letter residue name
+	    C(i),			// chain id (character)
+	    uid, ins,			// residue seq number (UID-INS)
+	    X, Y, Z,			// atom coordinates
+	    occupancy[x],		// occupancy field
+	    tfactor[x],			// temperature factor field
+	    el,				// upper case element symbol
+	    IonTotok aIon a		// formal charge
+	];
+
+	atom_key = cat [atom_key, a];
+	atom_id  = cat [atom_id, a_idx];
+	anum = anum + length a;
+
+	    // TER is required if there have been any ATOM records in the chain
+	    // or if there would otherwise be consecutive, duplicate
+	    // rName/rUID/INS, or if the user asked for TERs after all chains.
+
+	local terF = anytrue opt.force_TER;
+
+	if not anytrue terF then
+	    terF = indexof ['ATOM', record];
+	endif
+
+	r = last r;
+	if not terF and i < length res then
+	    terF = rFullName r === rFullName first res(inc i);
+	endif
+
+	if terF then
+	    const TER_FMT =  'TER   {n:5}      {t:3}  {n:4}{c:}\n';
+	    fwrite [fkey, TER_FMT, anum = inc anum, rName r, last uid, rINS r];
+	endif
+    endloop
+
+	// CONECT
+
+    WriteConect [ fkey, atom_key, atom_id];
+
+    SystemPop psys;
+endfunction
+
+global function: myfwrite_PDB [file, obj, opt]
+    local i,x,n,m,v;
+
+    if opt.iupac === 1 and isnull opt.hnames then
+	opt.hnames = 'IUPAC';
+    endif
+    opt = tagcat [opt, PDB_WRITE_DEFAULTS];
+
+    local fkey = fopenw file;
+
+	// Extract the unique residues & put them in order by chain.
+
+    local R = uniq cat oResidues obj;
+    R = R[x_sort rNumber R];
+    [x,n] = sac cNumber oParent R;
+    R = split [R[x], n];
+
+	// Find chains with peptide sequences and put them first -
+	// they require a TER after the last residue.
+
+    if not anytrue opt.force_TER then
+	R = R[x_sort not app orE rIsAmino R];
+    endif
+
+	// We do write a header; arguably we shouldn't.
+
+    local header = cat [token opt.header, uniq cHeader oParent cat R];
+    if anytrue header then
+	header = first (header | app anytrue header);
+	if length opt.date then opt.date = date_to_DMY opt.date; endif;
+	fwrite [fkey, '{t:-10}{t:-40}{t:-12}{t:-8}\n',
+	    'HEADER', header, opt.date, opt.code
+	];
+    endif
+
+	// TITLE
+
+    if length opt.title then
+	write_string [fkey, 'TITLE', opt.title];
+    endif;
+
+	// COMPND, SOURCE
+
+    write_specification_list [fkey, opt, 'compnd'];
+    write_specification_list [fkey, opt, 'source'];
+
+	// KEYWDS, EXPDTA
+
+    if length opt.keywds then write_list [fkey, opt, 'keywds', ","]; endif
+    if length opt.expdta then write_list [fkey, opt, 'expdta', ";"]; endif
+
+	// REMARKs, including a MOE identifier comment.
+
+    local remarks = opt.remark;
+    remarks.'99' = [
+	swrite ['{t:-70}',  ''],
+	swrite ['{t:-70}',  twrite [SRC_MOE_WRITE, MOE_VERSION, asctime[]]]
+    ];
+
+    [n,v] = untag remarks;
+    n = tonum n;
+    [n,v] = apt get [[n,v], [x_sort n]];
+    for i = 1, length v loop
+	apt fwrite [fkey, 'REMARK {n:3}{}\n', n(i), v(i)];
+    endloop
+
+	// Get the set of atoms to write.
+
+    local A_write = uniq cat oAtoms obj;
+
+    if anytrue [R, A_write] then
+	fwrite_PDB_atoms [fkey, R, A_write, opt];
+    endif
+
+    fwrite [fkey, 'END\n'];
+    fclose fkey;
+endfunction
+
+global function: myWritePDB [filename, options]
+    [filename,[],options] = Write_Prompt[filename,'pdb',options];
+    myfwrite_PDB [filename, Chains [], options];
+endfunction
+
+//======= Miscellaneous helpers : Seqres2Atoms, GenerateImages =================
+
+local function pdb_SplitHets data
+    local m = split [mol_rType data.mol == 'amino', mol_nRes data.mol];
+    local n = app btoc m;
+
+    local okF = (app length n == 1 or 24 > app add m or 0.50 >= app mean m);
+
+    if alltrue okF then return data; endif;  // Nothing to do
+
+    local psys = SystemPush [];
+
+    local C = mol_Create data.mol;
+    local R = cResidues C;
+    local N = app length R;
+    local A = cat cAtoms C;
+
+    m = mput [m, okF,  app one (m | okF)];
+
+    local x, i;
+    for x in x_pack not okF loop
+	local mask = not m(x);
+	local r = R(x) | mask;
+	for i = 1, length r loop
+	    local b = uniq cat oParent aBonds cat oChildren r(i);
+	    b = rNumber (b | oParent b == C(x));
+	    local rn = rNumber r(i);
+	    if rn == N(x) then
+		mask(rn) = not indexof [dec N(x), b];
+	    elseif rn == 1 then
+		mask(rn) = not indexof [2, b];
+	    else
+		mask(rn) = not andE indexof [rn + [1,-1], b];
+	    endif
+	endloop
+	if anytrue mask then
+	    local c = oCreate 0;
+	    cSetName [c, cName C(x)];
+	    cSetTag [c, cTag C(x)];
+	    oReparent [R(x) | mask, c];
+	    C(x) = cat [C(x), c];
+	endif
+    endloop
+
+    n = app length C;
+    if anytrue (1 < n) then
+	data.mol = mol_Extract (C = cat C);
+	if length data.model_num then
+	    data.model_num = stretch [data.model_num, n];
+	endif
+	if length data.chain_id then
+	    data.chain_id = stretch [data.chain_id, n];
+	endif
+
+	local idx = indexof [cat cAtoms C, A];
+
+	local a;
+	for a in join [ATOM_ATTR, tags data] loop
+	    if length data.(a) then
+		data.(a) = data.(a)[idx];
+	    endif
+	endloop
+    endif
+
+    SystemPop psys;
+
+    return data;
+endfunction
+
+// Trys to fill in missing sequence uids/ins codes in an intelligent way.
+
+local function TidyUID [uid, ins, m_fill]
+    if allfalse m_fill then
+	 return [uid, ins];
+    endif
+    if alltrue m_fill then
+	return [x_id m_fill, rep [" ", length m_fill]];
+    endif
+
+    const UID_FILL  = -9999;
+    const INS_CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    local ins_chars = uniq cat [INS_CHARS, ins];
+    local idx_ins   = x_id ins_chars;
+
+    uid | m_fill = UID_FILL;
+    ins | m_fill = " ";
+    ins = indexof [ins,  ins_chars];
+
+    local seg = btoc m_fill;
+    [uid, ins] = apt split [[uid, ins],  [seg]];
+    m_fill = app first split [m_fill, seg];
+
+    if first m_fill then
+	local idx = reverse x_id uid(1);
+	if leE keep [uid(2), 2] then idx = neg idx; endif;
+	uid(1) = first uid(2) + idx;
+	if first ins(2) === second ins(2) then
+	    ins(1) = rep [first ins(2), seg(1)];
+	endif
+    endif
+
+    function available_ins u = diff [idx_ins, (cat ins | u == cat uid)];
+
+    local i;
+    for i = 2, dec length seg loop
+	if not m_fill(i) then continue; endif;
+
+	local uidL = uid(dec i)(seg(dec i));	// last uid in left seg
+	local uidR = uid(inc i)(1);		// first uid in right seg
+	local n    = seg(i);
+
+	local j,x,c,I;
+
+	if uidL == uidR then
+	    c = available_ins uidL;
+	    uid(i) = rep [uidL, min [n, length c]];
+	    ins(i) = keep [c, n];		// leftovers dealt with later
+	    continue;				// CONTINUE
+	endif
+
+	if uidL > uidR then
+
+		// should count down to " " first, then count down to 1 XXX
+
+	    if uidR > 1 then
+		I = uniq ins(inc i);
+	    	if length I > 1 then I = 1; endif;
+	    	x = igen min [n, dec uidR];
+	    	uid(i) = put [uid(i), x - (length x - n),  uidR - reverse x];
+	    	ins(i) = put [ins(i), x - (length x - n),  I];
+	    	n = n - length x;
+	    endif
+
+		// count up from the left
+
+	    I = uniq ins(dec i);
+	    if length I > 1 then I = 1; endif;
+	    x = igen n;
+	    uid(i) = put [uid(i), x, uidL + x];
+	    ins(i) = put [ins(i), x, I];
+	    continue;				// CONTINUE
+	endif
+
+	    // UID left < UID right.
+
+	local insL = ins(dec i);	    	// ins codes in left seg
+	local insR = ins(inc i);	    	// ins codes in right seg
+
+	local uid_gap = uidR - uidL - 1;
+	x = igen min [n, uid_gap];
+
+	if uid_gap == n and last insL == first insR then
+	    I = last insL;
+	    if not indexof [I, (cat ins) | indexof [cat uid, uidL + x]] then
+		uid(i) = put [uid(i), x, uidL + x];
+		ins(i) = put [ins(i), x, I];
+		continue;			// CONTINUE
+	    endif
+	endif
+
+	I = uniq cat [keep [insL, -2], keep [insR, 2]];
+	if length I == 1 and I(1) > 1 then	// can't use insertion codes
+	    uid(i) = put [uid(i), x, uidL + x];
+	    ins(i) = put [ins(i), x, I];
+	    continue;				// CONTINUE
+	endif
+
+	if n <= uid_gap then			// don't need insertion codes
+	    if eqL keep [insL, -2] then
+		I = last insL;
+	    else
+		I = 1;
+	    endif
+	    uid(i) = put [uid(i), x, uidL + x];
+	    ins(i) = put [ins(i), x, I];
+	    continue;				// CONTINUE
+	endif
+
+	    // Count down to space.
+
+	if not (insR(1) === insR(2)) then
+	    I = insR(1);
+	    while I > 1 and n > 0 loop
+		uid(i)(n) = uidR;
+		ins(i)(n) = dec I;
+		n = dec n;
+	    endloop
+	endif
+
+	if last insL > 1 and eqL keep [insL, -2] and leL uidL then
+	    j = 1;
+	    I = last insL;
+	    while (uidL < uidR) and j <= n loop
+		uid(i)(j) = (uidL = inc uidL);
+		ins(i)(j) = I;
+		j = inc j;
+	    endloop
+	    continue;				// CONTINUE
+	endif
+
+	j = 1;
+	uid_gap = uidR - uidL - 1;
+	while n > uid_gap and uid_gap > 0 loop
+	    c = available_ins uidL;
+	    x = j + dec igen min [n - uid_gap, length c];
+	    uid(i) = put [uid(i), x, uidL];
+	    ins(i) = put [ins(i), x, keep [c, length x]];
+	    uid_gap = dec uid_gap;
+	    uidL = inc uidL;
+	    n = n - length x;
+	    j = j + length x;
+	until length x < 1
+	endloop
+
+	if n > 0 then
+	    x = dec igen n;
+	    if uid_gap == 0 then
+		c = available_ins uidL;
+		[x, c] = apt keep [[x,c], min app length [x,c]];
+		uid(i) = put [uid(i), j + x, uidL];
+		ins(i) = put [ins(i), j + x, keep [c, length x]];
+	    else
+		uid(i) = put [uid(i), j + x, uidL + x];
+	    endif
+	endif
+    endloop
+
+    if last m_fill then
+	local uprev = uid(dec length uid);
+	x = x_id last uid;
+	if length uprev > 1 and gtL uprev then x = neg x; endif;
+	uid(length uid) = last uprev + x;
+	I = uniq keep [ins(dec length ins), -2];
+	if length I == 1 then
+	    ins(length ins) = rep [I, last seg];
+	endif
+    endif
+
+    [uid, ins] = app cat [uid, ins];
+    m_fill = stretch [m_fill, seg];
+
+    local r_id = tok_cat [totok uid, '_', totok ins];
+
+	// Try to fix the clashes with insertion codes.
+
+    local m = m_fill and uid <> UID_FILL;
+    m[x_pack m] = indexof [r_id | m, r_id | not m] or not m_uniq (r_id | m);
+    for i in x_pack m loop
+	I = first available_ins uid(i);
+	if length I then
+	    ins(i) = I;
+	    r_id(i) = tok_cat [totok uid(i), '_', totok I];
+	    m(i) = 0;
+	endif
+    endloop
+
+    m = m or uid == UID_FILL;
+    uid | m = max uid + x_id pack m;
+    ins | m = 1;
+
+    return [uid, ins_chars[ins]];
+endfunction
+
+global function mypdb_TidyPDBSeqNum [uid, ins, seg, mask]
+    local [U, I, m] = apt split [[uid, ins, mask], [seg]];
+
+    local i;
+    for i = 1, length seg loop
+	[U, I] = apt poke [[U, I], i, TidyUID [U(i), I(i), m(i)]];
+    endloop
+
+    return [cat U, cat I];
+endfunction
+
+local function mol_TidyUID mol
+    local [uid, ins] = [mol_rUID mol, mol_rINS mol];
+    local [seg, natoms] = [mol_nRes mol, mol_nAtoms mol];
+
+    [uid, ins] = mypdb_TidyPDBSeqNum [uid, ins, seg, not natoms];
+
+    mol(3)(MOL_RES_UID)  = uid;
+    mol(3)(MOL_RES_INS)  = ins;
+
+    return mol;
+endfunction
+
+local function _CheckAlign segs
+    local [rnames, natoms, uid, ins, bonds, res_idx, idx, changeF] = segs;
+
+    local [B1, B2, B3] = bonds[idx];
+    local [X1, X2, X3] = res_idx[idx];
+    local [N1, N2, N3] = natoms[idx];
+    local [R1, R2, R3] = rnames[idx];
+    local [U1, U2, U3] = uid[idx];	// 1 prev, 2 current, 3 next
+    local [I1, I2, I3] = ins[idx];
+
+    if not (last B1 === first X3) or isnull X3 then
+	return [natoms, uid, ins, bonds, changeF];
+    endif
+
+    local okF = 0, i, j, x;
+
+    [i, j] = app length [R1, R2];
+    while (i > 1 and j > 0 and not okF) loop
+	if R1(i) <> R2(j) then break; endif
+	okF = not (B1(dec i) === X1(i));
+	[i,j] = dec [i,j];
+    endloop
+
+    if okF then
+	x = igen (length R1 - i);
+	local x1 = x + i;
+	local x2 = x + j;
+	N2[x2] = N1[x1]; N1[x1] = 0;
+	B2[x2] = B1[x2] + length x; B1[x2] = [[]];
+	U2[x2] = U1[x1];
+	I2[x2] = I1[x1];
+    else
+	local n = min [length R2, length R3];
+	x = igen n;
+	i = indexof [1,  R2[x] <> R3[x]];
+	if i > 0 then
+	    n = min [n, dec i];
+	endif
+	if n > 0 then
+	    x = igen n;
+	    n = min [n, indexof [0, apt eqL [B3[x], X3[inc x]]]];
+	    if n > 0 then
+		x = igen n;
+		N2[x] = N3[x]; N3[x] = 0;
+		B2[x] = B3[x] - X3(1) - X2(n); B3[x] = [[]];
+		U2[x] = U3[x];
+		I2[x] = I3[x];
+		okF = 1;
+	    endif
+	endif
+    endif
+
+    if okF then
+	bonds[idx]  = [B1,B2,B3];
+	uid[idx]    = [U1,U2,U3];
+	ins[idx]    = [I1,I2,I3];
+	natoms[idx] = [N1,N2,N3];
+	changeF = 1;
+    endif
+
+    return [natoms, uid, ins, bonds, changeF];
+endfunction
+
+local function mol_CheckAlignment mol
+    local R_atoms = split [mol_nAtoms mol,	mol_nRes mol];
+    local R_names = split [mol_rName mol,	mol_nRes mol];
+    local R_idx   = split [igen mol_rCount mol, mol_nRes mol];
+    local R_uid   = split [mol_rUID mol,	mol_nRes mol];
+    local R_ins   = split [mol_rINS mol,	mol_nRes mol];
+
+    local b = mol_aBnd mol || apt get [[mol_aBck mol], mol_aBnd mol];
+    local R_bond = app uniq app cat split [
+	apt get [[mol_aRnum mol], b], mol_nAtoms mol
+    ];
+    R_bond = app first (R_bond || R_bond > igen mol_rCount mol);
+    R_bond = split [R_bond, mol_nRes mol];
+
+    local i, j, changeF = 0;
+    for i = 1, length R_atoms loop
+	local N = R_atoms(i);
+	if alltrue N or allfalse N then continue; endif; // Nothing to do
+
+	local seg = btoc not N;
+
+	      N = split [N,		seg];
+	local U = split [R_uid(i),	seg];
+	local I = split [R_ins(i),	seg];
+	local R = split [R_names(i),	seg];
+	local B = split [R_bond(i),	seg];
+	local X = split [R_idx(i),	seg];
+
+	local idx = dec dec igen 3;
+	for j = 2, dec length seg loop
+	    if first N(j) then continue; endif;
+	    [N,U,I,B,changeF] = _CheckAlign [
+		R, N, U, I, B, X, idx + j, changeF
+	    ];
+	endloop
+
+	R_atoms(i) = cat N;
+	R_uid(i)   = cat U;
+	R_ins(i)   = cat I;
+	R_bond(i)  = cat B;
+    endloop
+
+    mol(3)(MOL_RES_NATOMS) = cat R_atoms;
+    mol(3)(MOL_RES_UID)    = cat R_uid;
+    mol(3)(MOL_RES_INS)    = cat R_ins;
+
+    return [mol, changeF];
+endfunction
+
+// Try to align the raw atom residues to the residues in SEQRES.
+// If we fail, try aligning the substituted sequences, first using
+// the MOD_RES records, then the SEQ_ADV records.
+
+local function align [s1, s2]
+    local S = cat [s1,s2];
+    local s = uniq S;
+    local M = 10 * (x_id s == [x_id s]);
+    local n = app length [s1,s2];
+    local x = cat split [indexof [S, s], n];
+    local key = first AlignOpen [M, 0.1, [1,2], n, [dec x, x, 0.001]];
+    while not AlignSearch key loop endloop
+    local rp = first AlignClose key;
+    return indexof split [rp, n];
+endfunction
+
+global function mypdb_Seqres2Atoms [data, mol]
+    local i,x;
+
+    local seqres = untag taguniq data.seqres;	// warn if duplicates !!!
+    local modres = data.modres;
+    local seqadv = data.seqadv;
+
+    modres = modres || [not eqE modres[[1,5]]];
+    modres = modres || [andE ('' <> modres[[1,5]])];
+
+    seqadv = seqadv || [not eqE seqadv[[1,7]]];
+    seqadv = seqadv || [andE ('' <> seqadv[[1,7]])];
+
+    local C_id = app token cLetter mol_cName mol;
+
+    local nR = mol_nRes mol;
+    local nA = split [mol_nAtoms mol, nR];
+
+    local A_res_id = split [mol_rFullName mol, nR];
+    local A_res    = split [mol_rName mol, nR];
+
+    local R = A_res;
+
+    local rT = split [mol_rType mol, nR];
+    local rU = split [mol_rUID  mol, nR];
+    local rI = split [mol_rINS  mol, nR];
+
+    function check_seq [xC, xSeq, sub_table]
+	local aseq = A_res(xC);
+	local rseq = seqres(2)(xSeq);
+	if length aseq == length rseq then return 1; endif;
+
+	if l_length sub_table then
+	    local rnew = res_name droplast sub_table;
+	    x = indexof [rnew, A_res_id(xC)];
+	    if not andE x then return 0; endif;	// error condition
+	    aseq[x] = last sub_table;
+	endif
+
+	local rP = align [aseq, rseq];
+
+	if not andE rP		    then return 0; endif;
+	if not (aseq === rseq[rP])  then return 0; endif;
+
+	nR(xC) = length rseq;
+	 R(xC) = put [rseq,			rP,  R(xC)];
+	nA(xC) = put [zero rseq,		rP, nA(xC)];
+
+	local rt = get [['rna','dna','amino'], tok_length rseq]; // !!!
+	rT(xC) = put [rt,			rP, rT(xC)];
+
+	rU(xC) = put [zero rseq,		rP, rU(xC)];
+	rI(xC) = put [rep [" ", length rseq],	rP, rI(xC)];
+
+	return 1;
+    endfunction
+
+    local idx = indexof [seqres(1), C_id];
+    for i = 1, length idx loop
+	if not idx(i) then continue; endif;
+
+	if check_seq [idx(i), i] then continue; endif;
+
+	local c = string seqres(1)(i);
+
+	local sub_res = modres || [c == modres(2)];
+	if l_length sub_res then
+	    if check_seq [idx(i), i, sub_res [[1,3,4,5]]] then
+		continue;
+	    endif;
+	endif
+
+	sub_res = seqadv || [c == seqadv(2)];
+	if l_length sub_res  then
+	     if check_seq [idx(i), i, sub_res[[1,3,4,7]]] then
+		continue;
+	    endif;
+	endif
+    endloop
+
+	// Integrate SEQRES records with no matching chain_id.
+
+    if not andE idx then
+	seqres = seqres || [not idx];
+	local n = app length seqres(2);
+	idx = inc (rotrpoke [idx, 0] | not idx);
+	mol(2)(MOL_CHAIN_NAME) = splice [mol_cName mol, idx, 0, seqres(1)];
+	nR = splice [nR, idx, 0, n];
+
+	mol(2)(MOL_CHAIN_TAG) =
+	mol(2)(MOL_CHAIN_HEADER) = rep ['', length C_id + length n];
+
+	R  = splice [R,  idx, 0, seqres(2)];
+	nA = splice [nA, idx, 0, zero seqres(2)];
+
+	local rt_seq = rep ['amino', add n];
+	local s = cat seqres(2);
+	local nuc = tok_length s < 3;
+	rt_seq | nuc = select ['dna','rna', tok_length (s | nuc) == 2];
+
+	rT = splice [rT, idx, 0, split [rt_seq, n]];
+	rU = splice [rU, idx, 0, app igen n];
+	rI = splice [rI, idx, 0, apt rep [" ", n]];
+    endif
+
+    mol(2)(MOL_CHAIN_NRES) = nR;
+
+    mol(3)(MOL_RES_NATOMS) = cat nA;
+    mol(3)(MOL_RES_NAME)   = cat R;
+    mol(3)(MOL_RES_TYPE)   = cat rT;
+    mol(3)(MOL_RES_UID)	   = cat rU;
+    mol(3)(MOL_RES_INS)    = cat rI;
+
+    loop
+	local changeF;
+	[mol, changeF] = mol_CheckAlignment mol;
+    until not changeF
+    endloop
+
+	// Calculate reasonable UID/INS values for empty residues inserted
+	// from SEQRES.
+
+    return mol_TidyUID mol;
+endfunction
+
+global function mypdb_GenerateImages data
+    if isnull data.mol then return data; endif;		    // Nothing to do
+    local mtrix = [data.mtrix1, data.mtrix2, data.mtrix3];
+    if anytrue app isnull mtrix then return data; endif;    // check for error?
+
+    mtrix = tr mtrix;
+    local i, R = [], T = [], mask = [], ID = matid 3;
+    for i = 1, length mtrix loop
+	local v = mtrix(i);
+	R(i) = apt get [v, [[2,3,4]]];
+	T(i) = apt peek [v, 5];
+	mask(i) = anytrue [
+	    R === ID, allfalse [R(i), T(i)], "1" == apt peek [v, 6]
+	];
+    endloop
+    if alltrue mask then return data; endif;		    // Nothing to do
+
+    [R,T] = [R,T] || [not mask];
+
+    local P = [mol_aPos data.mol];
+    for i = 1, length R loop
+	P(i+1) = app add (R(i) * P[1]) + T(i);
+    endloop
+
+    local C = mol_cName data.mol;
+    local I = rep [data.mol, length P];
+
+    const NCS_OP_FMT = '{t:} NCS Image {n:}';
+
+    for i = 2, length P loop
+	I(i) = mol_aSetPos [data.mol, P(i)];
+	I(i)(2)(MOL_CHAIN_NAME) = apt twrite [NCS_OP_FMT, C, i];
+    endloop
+    data.mol = mol_Cat I;
+
+    local attr;
+    for attr in ATOM_ATTR loop
+	data.(attr) = cat rep [data.(attr), length I];
+    endloop
+
+    return data;
+endfunction
+
+local function extract_BIOMT data
+    function parse_error []
+	data.error = cat [data.error, 'Error parsing BIOMT record'];
+	return data;
+    endfunction
+
+    local rem = data.remark.'350';
+    local m = m_findmatch [
+	'BIOMOLECULE: [A-Z,a-z,1-9]*', app token app trim_ws rem
+    ];
+    if allfalse m then return parse_error[]; endif;
+
+    local v = dropfirst split [rem, mtoc m];
+    local imol = rep ['', length v], biomol = rep [[], length v];
+
+    local i,j;
+    for i = 1, length v loop
+	imol(i) = first sread [v(i)(1), '{t:X}{t:}'];
+	const CHAIN_LETTER_LINE = '*APPLY *CHAINS:*?*';
+	m = m_findmatch [CHAIN_LETTER_LINE, app token v(i)];
+	biomol(i) = dropfirst split [v(i), mtoc m];
+	for j = 1, length biomol(i) loop
+	    local s = biomol (i)(j);
+
+		// Pick up the chain letters
+
+	    local lett = drop [s(1), indexof [":", s(1)]];
+	    lett = (lett | not (isspace lett or lett == ","));
+
+	    s = dropfirst s;
+	    while m_findmatch [' *AND CHAINS:*', token s(1)] loop
+		local l = drop [s(1), indexof [":", s(1)]];
+		lett = cat [lett, (l | not (isspace l or l == ","))];
+		s = dropfirst s;
+	    endloop
+
+	    local w = apt sread [s, '{t:8}{n:1}{n:4}{n:10*3}{n:}'];
+	    w = (app first w) | (app second w) >= 59;   // XXX !!! 1m4x
+	    w = tr ( (app dropfirst w) | (app first w) == 'BIOMT');
+
+	    local N = app first split [w(2), 3];
+	    local M = split [w(3), 3];
+	    local T = split [w(4), 3];
+
+	    biomol(i)(j) = [lett, N, M, T];
+	endloop
+    endloop
+
+    data.biomol = [imol, biomol];
+    return data;
+endfunction
+
+// This function replaces data.mol with a new mol that is a mol_Cat
+// of the requested biomols. data.biomol will be a flat numeric vector,
+// indicating to which chain the biomols belong.
+
+global function mypdb_GenerateBiomol [data, opt]
+    if isnull data.remark.'350' or isnull data.mol then
+	return data;
+    endif					    // Nothing to do
+
+    data = extract_BIOMT data;
+    if isnull data.biomol then return data; endif;  // error parsing biomt
+    local cname = mol_cName data.mol;
+
+	// Accumulators
+
+    local imol = [], biomol = [], atom_attr = [];
+
+    opt.biomol = totok opt.biomol;
+
+    local attr;
+    local i, j, k, v = last data.biomol, I = first data.biomol;
+    for i = 1, length v loop
+	local mols = [], A = [];
+	if not anytrue (opt.biomol === 'all' or opt.biomol === I(i)) then
+	    continue;
+	endif
+	for j = 1, length v(i) loop
+	    local [c, N, M, T] = v(i)(j);
+
+	    local m = m_findmatch [tok_cat ['*.', app token c], cname];
+	    if allfalse m then continue; endif;
+
+	    const BIOMOL_OP_FMT = '{t:} BIOMT operation {n:}';
+
+	    local mol = mol_cMask [data.mol, m];
+	    local P = mol_aPos mol;
+	    local n = min [99, length M];
+	    for k = 1, n loop
+		local p = T(k) + rot3d_mvMul [M(k), P];
+		local t = apt twrite [BIOMOL_OP_FMT, mol_cName mol, N(k)];
+		mols = append [
+		    mols, poke [mol_aSetPos [mol, p], [2, MOL_CHAIN_NAME], t]
+		];
+	    endloop
+
+	    m = str_C2A [data.mol, m];
+	    for attr in ATOM_ATTR loop
+		A.(attr) = cat [A.(attr), cat rep [data.(attr) | m, n]];
+	    endloop
+	endloop
+
+	k = inc length biomol;
+	biomol(k)    = mol_Cat mols;
+	imol(k)	     = rep [I(i), mol_cCount biomol(i)];
+	atom_attr(k) =  A;
+    endloop
+
+    for attr in ATOM_ATTR loop
+	data.(attr) = cat apt tagpeek [atom_attr, attr];
+    endloop
+    data.mol    = mol_Cat biomol;
+    data.biomol = cat imol;
+
+    return data;
+endfunction
+
+//================= Crystal contacts ==========================================
+
+local function get_spg_matrix sym
+    local [S] = SpaceGroupMatrix sym;
+    return [app droplast S, app last S];
+endfunction
+
+local function spg_matmul [m, x]
+    local i, y;
+    for i = 1, 3 loop  // do matmul explicitly here, only 10 possible cases
+	if m(i) === [1, 0, 0] then
+	    y(i) = x(1);
+	elseif m(i) === [ 0, 1,  0] then
+	    y(i) = x(2);
+	elseif m(i) === [ 0, 0,  1] then
+	    y(i) = x(3);
+	elseif m(i) === [-1, 0,  0] then
+	    y(i) = -x(1);
+	elseif m(i) === [ 0, -1,  0] then
+	    y(i) = -x(2);
+	elseif m(i) === [ 0,  0, -1] then
+	    y(i) = -x(3);
+	elseif m(i) === [-1, -1, 0] then
+	    y(i) = -x(1) - x(2);
+	elseif m(i) === [ 1,  1, 0] then
+	    y(i) = x(1) + x(2);
+	elseif m(i) === [-1,  1, 0] then
+	    y(i) = -x(1) + x(2);
+	elseif m(i) === [ 1, -1, 0] then
+	    y(i) = x(1) - x(2);
+	endif
+    endloop
+    return y;
+endfunction
+
+// TBD: give auidx as well for correct special position determination.
+
+local function mol_Images [aumol, toFrac, toXYZ, ridx, Sym, Vec, rad]
+
+    local Ridx = igen mol_rCount aumol;
+    local m = m_uniq l_frank [ridx, Sym, Vec];
+    [ridx, Sym, Vec] = [ridx, Sym, Vec] || [m];
+
+    local I = l_frank [Sym, Vec];
+    local idx = x_uniq I;
+
+    local image = rep [[], length idx];
+
+    aumol(2) = append [aumol(2), igen mol_cCount aumol];
+    aumol(4) = append [aumol(4), rad];
+
+    local prox = prox_open [2 * max rad, mol_aPos aumol, rad];
+    local mask = zero first mol_aPos aumol;
+    local hv   = not mol_aLht aumol;
+
+    local i;
+    for i in idx loop
+	local [R, T] = get_spg_matrix Sym(i);
+	local mol = mol_rMask [aumol, indexof [Ridx, ridx | I(i) == I]];
+
+	local pos = mol_aPos mol;
+	local frp = append [matmul [toFrac, pos], 1];
+	pos = matmul [toXYZ, Vec(i) + T + spg_matmul [R, frp]];
+
+	local [n, x1, r2] = prox_find [prox, pos, last mol(4)];
+	if isnull n then continue; endif;
+	local x2 = stretch [x_id n, n];
+	mask[x1|r2 <= sqr 4.5 and (not mol_aLht mol)[x2] and hv[x1]] = 1;
+
+	n = app add split [n, mol_nAtoms mol];
+	n | s_min [r2, n] <= sqr 0.15 = 0;	// !!!
+	if not orE n then continue; endif;
+
+	image(i) = mol_rMask [mol_aSetPos [mol, pos], n];
+    endloop
+    prox_close prox;
+
+    if isnull (image = image | app length image) then
+	return [];
+    endif
+
+    image = mol_Cat image;
+    image = mol_rMask [image, mol_nAtoms image];
+
+    idx = last image(2);
+    I = uniq idx;
+    image = mol_DropExtend image;
+    aumol = [];
+    for i = 1, length I loop
+	aumol(i) = mol_cMask [image, idx == I(i)];
+	aumol(i)(2)(MOL_CHAIN_TAG)    = first aumol(i)(2)(MOL_CHAIN_TAG);
+	aumol(i)(2)(MOL_CHAIN_NAME)   = first aumol(i)(2)(MOL_CHAIN_NAME);
+	aumol(i)(2)(MOL_CHAIN_HEADER) = 'Crystal Contact Shell';
+	aumol(i)(2)(MOL_CHAIN_NRES)   = l_length aumol(i)(3);
+    endloop
+    aumol = mol_Cat aumol;
+    aumol = mol_cMask [aumol, mol_nRes aumol];
+
+    return [aumol, mask];
+endfunction
+
+local function periodic_pos fpos
+    local idx   = x_id first fpos;
+    local fpos1 = mod1 fpos;
+    local vec   = round (fpos - fpos1);
+
+    local p_pos = rep [[], 27], p_cell = p_pos, p_idx = p_pos, p_vec = p_pos;
+    local i;
+    for i = 1, 27 loop
+	local p = fpos1 + grid_s2m [[3,3,3], i] - 2;
+	local m = andE (abs p <= 1.5);	// within half a cell's width
+
+	p_pos(i)  = (p || [m]);
+	p_idx(i)  = idx | m;
+	p_cell(i) = rep [i, add m];
+	p_vec(i)  = vec || [m];
+    endloop
+
+    return [apt cat p_pos, cat p_idx, cat p_cell, apt cat p_vec];
+endfunction
+
+local function pack_pos [pos, toFrac, toXYZ]
+    local frp  = matmul [toFrac, pos];
+    local frp1 = mod1 frp;
+
+    return [append [frp, 1], round (frp - frp1), matmul [toXYZ, frp1]];
+endfunction
+
+local function CrystalContacts [aupos, rad, [spg, dim, ang]]
+    local symop = SPACEGROUP_SYMMETRY(indexof [spg, SPACEGROUP_NAME]);
+    local [toXYZ, toFrac] = CellMatrices [spg, dim,  ang];
+
+    local [aufrp, auvec, auppos] = pack_pos [aupos, toFrac, toXYZ];
+    local prox = prox_open [2 * max rad, auppos, rad]; auppos = aupos = [];
+
+    local cell_vec = -2 + tr (apt grid_s2m [[[3,3,3]], igen 27]);
+
+    local IDX = split [igen length rad, 1024];
+    local bucket = 2 * max rad;
+
+    symop = cat ['x,y,z', symop];
+
+    local i, m, Idx = rep [[], length symop], Sym = Idx, Vec = Idx;
+    for i = 1, length symop loop
+	local [R,T] = get_spg_matrix symop(i);
+	local X = rep [[], length IDX], V = X, S = X;
+	local I, x = 0;
+	for I in IDX loop
+	    local frp = spg_matmul [R, apt get [aufrp, [I]]] + T;
+	    local [pos, idx, Tidx, vec] = periodic_pos frp;
+	    idx = idx + dec first I;
+
+	    if symop(i) == 'x,y,z' then
+		if not add (m = Tidx <> 14) then continue; endif;
+		[pos, idx, Tidx, vec] = [
+		    pos || [m], idx | m, Tidx | m, vec || [m]
+		];
+	    endif
+
+	    local [n, x1, r2] = prox_find [prox, matmul [toXYZ, pos], rad[idx]];
+
+	    if not add (m = r2 > 0) then continue; endif
+
+	    [x1, r2] = [x1, r2] || [m];
+	    n = s_add [m, n];
+
+	    local x2 = stretch [x_id n, n];
+
+	    local t =
+		  apt get [auvec,	[x1]	    ]
+		+ apt get [cell_vec,	[Tidx[x2]]  ]
+		- apt get [vec,	    	[x2]	    ]
+	    ;
+
+	    if symop(i) == 'x,y,z' then
+		if not add (m = orE t) then continue; endif;
+		[x2, r2, t] = [x2 | m, r2 | m, t || [m]];
+	    endif
+
+	    x = inc x;
+	    X(x) = idx[x2];
+	    S(x) = rep [symop(i), length x2];
+	    V(x) = tr t;
+
+	endloop
+
+	m = m_uniq l_frank ([X,S,V] = app cat [X,S,V]);
+
+	Idx(i) = X | m;
+	Sym(i) = S | m;
+	Vec(i) = V | m;
+    endloop
+
+    prox_close prox;
+
+    m = m_uniq l_frank ([Idx, Sym, Vec] = app cat [Idx, Sym, Vec]);
+    [Idx, Sym, Vec] = [Idx, Sym, Vec] || [m];
+
+    return [toFrac, toXYZ, Idx, Sym, Vec];
+endfunction
+
+global function mypdb_CrystalContacts [data, opt];
+    local [dim, ang] = split [data.unit_cell, 3];
+    local spg = crys_StandardShortGroup [data.space_group, dim, ang];
+
+    if spg == 'P1' and min dim <= 1 then
+	return data;	    // RCSB place-holder for non-crys models
+    endif
+
+    local rad = first cat [opt.crystal_contact_rad, 4.5];
+    local mol = data.mol;
+    local r = rep [0.5 * rad, mol_aCount mol];
+    local m = stretch [not mol_rSolventIonsMetals mol, mol_nAtoms mol];
+    local p = (mol_aPos data.mol) || [m = m and not mol_aLht mol];
+    local [toF, toXYZ, X, Sym, Vec] = CrystalContacts [p, r|m, [spg, dim, ang]];
+    p = [];
+
+    local ridx = stretch [x_id first mol(3), mol_nAtoms mol];
+    X = (ridx | m)[X]; ridx = m = [];
+
+    [mol, m] = mol_Images [mol, toF, toXYZ, X, Sym, Vec, r];
+
+	// Add to data.mol instead ?
+
+    if length mol then
+	data.crystal_shell = mol;
+	data.crystal_contacts = m;
+    endif
+
+    return data;
+endfunction
+
+//============================================================================
+
+
+
+global function: my_fwrite_PDB [file, obj, opt]
+    local i,x,n,m,v;
+
+    if opt.iupac === 1 and isnull opt.hnames then
+	opt.hnames = 'IUPAC';
+    endif
+    opt = tagcat [opt, PDB_WRITE_DEFAULTS];
+
+    local fkey = fopenw file;
+
+	// Extract the unique residues & put them in order by chain.
+
+    local R = uniq cat oResidues obj;
+    R = R[x_sort rNumber R];
+    [x,n] = sac cNumber oParent R;
+    R = split [R[x], n];
+
+	// Find chains with peptide sequences and put them first -
+	// they require a TER after the last residue.
+
+    if not anytrue opt.force_TER then
+	R = R[x_sort not app orE rIsAmino R];
+    endif
+
+	// We do write a header; arguably we shouldn't.
+
+    local header = cat [token opt.header, uniq cHeader oParent cat R];
+    if anytrue header then
+	header = first (header | app anytrue header);
+	if length opt.date then opt.date = date_to_DMY opt.date; endif;
+	fwrite [fkey, '{t:-10}{t:-40}{t:-12}{t:-8}\n',
+	    'HEADER', header, opt.date, opt.code
+	];
+    endif
+
+	// TITLE
+
+    if length opt.title then
+	write_string [fkey, 'TITLE', opt.title];
+    endif;
+
+	// COMPND, SOURCE
+
+    write_specification_list [fkey, opt, 'compnd'];
+    write_specification_list [fkey, opt, 'source'];
+
+	// KEYWDS, EXPDTA
+
+    if length opt.keywds then write_list [fkey, opt, 'keywds', ","]; endif
+    if length opt.expdta then write_list [fkey, opt, 'expdta', ";"]; endif
+
+	// REMARKs, including a MOE identifier comment.
+
+    local remarks = opt.remark;
+    remarks.'99' = [
+	swrite ['{t:-70}',  ''],
+	swrite ['{t:-70}',  twrite [SRC_MOE_WRITE, MOE_VERSION, asctime[]]]
+    ];
+
+    [n,v] = untag remarks;
+    n = tonum n;
+    [n,v] = apt get [[n,v], [x_sort n]];
+    for i = 1, length v loop
+	apt fwrite [fkey, 'REMARK {n:3}{}\n', n(i), v(i)];
+    endloop
+
+	// Get the set of atoms to write.
+
+    local A_write = uniq cat oAtoms obj;
+
+    if anytrue [R, A_write] then
+	fwrite_PDB_atoms [fkey, R, A_write, opt];
+    endif
+
+    fwrite [fkey, 'END\n'];
+    fclose fkey;
+endfunction

@@ -1,0 +1,1357 @@
+#svl
+//	io_mol2Amber.svl		Tripos file format I/O
+//
+//	14-oct-2011 (jl) honor NO_CHARGES in @<TRIPOS>MOLECULE
+//	01-sep-2011 (kk) Default to chain name for mol_name when non-null
+//	08-jul-2011 (kk) Preserve MOL_NAME on export; SystemPush/Pop
+//	08-jul-2011 (kk) Simplify atom partition logic on write
+//	06-jun-2011 (jl) Fix multi-molecule/chain problem writing mol2 file
+//	01-feb-2011 (jl) insert double bond C.cat/N.pl3 groups
+//	22-jun-2010 (jl) fix fwrite_TriposMOL2, atom/chain order, subst name
+//	01-aug-2009 (pl) do explicit aSetPos when creating chains
+//	29-may-2009 (jl) corrections re: backbone flags, substr names/numbers
+//	05-jan-2009 (pl) GOLD write option
+//	31-jan-2008 (jl) improve guessing for w/o-H input, deal w/ explicit LP
+//	11-jan-2008 (jl) fixed various SUBSTRUCTURE bugs
+//	28-nov-2007 (pl) fixed mol_type bug (repeats)
+//	19-nov-2007 (pl) strip blanks from residue chain names
+//	21-sep-2007 (pl) updated chain letter catenation
+//	05-sep-2007 (pl) don't cat .* on funny chain names
+//	28-aug-2007 (pl) always write substructures
+//	14-aug-2007 (pl) fixed Read_ Write_ format name bug
+//	01-dec-2006 (pl) read PBC data
+//	11-nov-2006 (pl) overhaul reader and writer - new typing rules
+//	22-aug-2006 (kk) protect FixAroOco2 from LPs
+//	15-aug-2006 (pl) write N.am for sulfonamides
+//	13-jul-2006 (pl) provide fread_, atom ids are arbitrary not sequential
+//	08-jul-2006 (pl) fixed ar bonds on O.co2, zero charge writing
+//	05-dec-2005 (pl) fixed sulfonamide anions
+//	04-oct-2005 (pl) fixed writing of coordination bonds
+//	25-jan-2005 (pl) better fixing of ar bonds on import
+//	13-dec-2004 (pl) fixed write of NO2 SO2 PO etc., deleted read FC adjust
+//	23-jun-2004 (pl) fixed writing of aromatic bonds
+//	21-jun-2004 (jd) mark chains, aro, rUID, rINS, fwrite_TriposMOL2
+//	17-feb-2004 (jd) missing db_Close in function ImportTriposMOL2
+//	07-jan-2004 (pm) convert types tolower so that s.o == s.O
+//	22-nov-2002 (pl) added db_ExportTriposMOL2
+//	21-nov-2002 (pl) N aro bug and furan bug
+//	02-aug-2002 (pm) fixed output field width when nAtoms is power of 10
+//	04-jun-2002 (kk) C.1 bo, 3/4 chars for resname, O.co2=sp2 db_->mol_
+//	20-mar-2002 (pl) re-wrote molecule division logic on write (cTag etc)
+//	30-oct-2001 (pm) fixed field width bugs in fwrites
+//	30-apr-2001 (pl) incorporated ctab_to_mol analysis
+//	06-feb-2001 (pm) changed File to $File
+//	03-jan-2001 (al) return value from ReadTriposMOL2
+//	22-dec-2000 (pm) added option file_field
+//	30-oct-2000 (al) allow uppercase types in BOND block
+//	16-jul-2000 (pl) added P.4 to input types
+//	25-jan-2000 (pl) fixed isonitrile bug on write
+//	29-jun-1999 (pl) fixed N.pl3 on write for aromatics
+//	18-may-1999 (kk) pick up resnames from substructure(7)
+//	03-may-1999 (jd) Wrapper function db_ImportMOL2
+//	19-apr-1999 (pl) import of tripos to database
+//	05-feb-1999 (kk) allow no substructure line
+//	26-jan-1999 (kk) add N.pl3 SMILES for tryprophan ring N
+//	06-nov-1998 (pl) added O.co2 type
+//	07-aug-1998 (kk) rnames in atoms, support atom permute
+//	04-oct-1996 (pl) notice
+//
+// COPYRIGHT (C) 1996-2011 CHEMICAL COMPUTING GROUP INC.  ALL RIGHTS RESERVED.
+//
+// PERMISSION TO USE, COPY, MODIFY AND DISTRIBUTE THIS SOFTWARE IS HEREBY
+// GRANTED PROVIDED THAT: (1) UNMODIFIED OR FUNCTIONALLY EQUIVALENT CODE
+// DERIVED FROM THIS SOFTWARE MUST CONTAIN THIS NOTICE; (2) ALL CODE DERIVED
+// FROM THIS SOFTWARE MUST ACKNOWLEDGE THE AUTHOR(S) AND INSTITUTION(S); (3)
+// THE NAMES OF THE AUTHOR(S) AND INSTITUTION(S) NOT BE USED IN ADVERTISING
+// OR PUBLICITY PERTAINING TO THE DISTRIBUTION OF THE SOFTWARE WITHOUT
+// SPECIFIC, WRITTEN PRIOR PERMISSION; (4) ALL CODE DERIVED FROM THIS SOFTWARE
+// BE EXECUTED WITH THE MOLECULAR OPERATING ENVIRONMENT (MOE) LICENSED FROM
+// CHEMICAL COMPUTING GROUP INC.
+//
+// CHEMICAL COMPUTING GROUP INC. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+// SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+// AND IN NO EVENT SHALL CHEMICAL COMPUTING GROUP INC. BE LIABLE FOR ANY
+// SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+// RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+// CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+#set title	'Amber Tripos File I/O'
+#set class	'MOE:file-io'
+#set version	'2012.08'
+
+function pro_StandardRes;
+function Write_Prompt, Read_Return, Read_ProcessStandardOptions;
+function Read_Prompt, Read_Return, Read_ProcessStandardOptions;
+function fread_TriposMOL2;
+function ImportTriposMOL2;
+function ReadTriposMOL2;
+#ifnbif putadd
+    local function putadd [sum, I, Ival]	// putadd sum(I) += Ival
+	[I,Ival] = apt resize [[I,Ival], l_length [I,Ival]];
+	local [idx, mask] = sam I;
+	[I,Ival] = apt get [[I,Ival],[idx]];
+	local dst = I | mask;
+	sum[dst] = sum[dst] + s_add [Ival, mtoc mask];
+	return sum;
+    endfunction
+#endif
+
+// A Tripos file is an white-space separated ASCII file with '#' indicating
+// comment lines.  The file is divided into blocks of lines with each block
+// having the format
+//
+//	@<class>section
+//
+// and tripos uses @<TRIPOS>XXX where XXX can be (in order of appearance)
+//
+// MOLECULE
+//
+//	L1:	molecule title
+//	L2:	#atoms #bonds #substructures #features #sets
+//	L3:	SMALL or PROTEIN or NUCLEIC_ACID or BIOPOLYMER or POLYMER
+//	L4:	NO_CHARGES or USER_CHARGES or DICT_CHARGES or GAST_HUCK
+//	L5:	? (INVALID_CHARGES)
+//	L6:	? (Lattice Structure)
+//
+// ATOM
+//
+//	id# name x y z type substr# substrname charge flags
+//
+//	flags : WATER|BACKBONE|DICT|DIRECT|ESSENTIAL|CAP (| are separators)
+//
+// BOND
+//
+//	id# atom# atom# order flags
+//
+//		order :	1 2 3 ar am du un
+//		flagss : BACKBONE|DICT|INTERRES|CAP	(| are separators)
+//
+// DICT
+//
+//	L1:	dictionary-type dictionary-name
+//
+// SUBSTRUCTURE	substructure (e.g., residues)
+//
+//	id# name alpha-atom# type (?) (chain ID?) res-class (?) flags
+//
+//		type : RESIDUE|TEMP
+//		flags : ROOT|DICT
+//
+//	NOTE: only the first three fields are required; this code is
+//	written to expect either seven fields, or three
+
+const MODIFY_GUANIDINIUM = 1;	// insert double bond = 1
+
+const MOLECULE_BLOCK	 = "@<TRIPOS>MOLECULE";
+const ATOM_BLOCK	 = "@<TRIPOS>ATOM";
+const BOND_BLOCK	 = "@<TRIPOS>BOND";
+const SUBSTRUCTURE_BLOCK = "@<TRIPOS>SUBSTRUCTURE";
+
+const EMPTY = '****';	// indicates field is empty
+
+const WATER_RES = ['HOH', 'WAT', 'TIP', 'SOL', 'OH2', 'DOD', 'D20'];
+const DNA_RES   = ['DT', 'DA', 'DG', 'DC', 'DI', 'DU',
+		   'T' , 'A' , 'G' , 'C' , 'I' , 'U' , 'N'
+];
+
+const NUCLEIC_MAIN = [
+    'C3\'','C4\'','C5\'', 'O3\'','O3\'','O5\'',
+    'C3*','C4*','C5*','O1P','O2P','O3P','O3*','O5*','P'
+];
+const AMINO_MAIN = ['N','CA','C','O','OXT','CH3'];
+
+// =============================== READING ===================================
+
+// PerceiveElement tries to get the element from the Tripos type by
+// looking for an element-like prefix if the atype is not already an element
+
+local function PerceiveElement atype
+    local i, j;
+
+    atype = tolower atype;
+    local elsym = tolower ELEMENT_SYM;
+    local ELSYM = ELEMENT_SYM;
+
+    const XLATE = [
+	[ 'Du', 'Du.C', 'ANY', 'HEV', 'HET', 'HAL', 'LP' ],
+	[ 'lp', 'c',    'c',   'c',   'n',   'f',   'lp' ]
+    ];
+    i = indexof [atype, tolower XLATE(1)];
+    (atype | i) = XLATE(2)[pack i];
+
+    local el = atype;
+
+    local eidx = indexof [atype, elsym];
+    (el | eidx) = ELSYM[pack eidx];
+    (atype | eidx) = '';
+
+    for i in x_pack not eidx loop
+	if atype(i) == 'lp' then
+	    el(i) = 'LP';
+	    atype(i) = '';
+	elseif (j = indexof [".", string atype(i)]) then
+	    el(i) = tok_keep [atype(i), dec j];
+	    atype(i) = tok_drop [atype(i), dec j];
+	    if (j = indexof [el(i), elsym]) then
+		el(i) = ELSYM(j);
+	    else
+		el(i) = 'C';
+	    endif
+	else
+	    el(i) = 'C';
+	    atype(i) = '.3';
+	endif
+    endloop
+
+    return [el, tok_cat [el,atype]];
+endfunction
+
+// ConvertFromTripos converts a ctab and partial information into a mol
+// structure trying largely to ignore tripos atom types and focusing
+// on the bond orders and elements.
+
+local function ConvertFromTripos ctab
+    local i, idx, mask;
+
+    local [el, atype] = PerceiveElement ctab(1)(CTAB_A_SYM);
+
+    local atno   = el_Protons el;
+    local col    = el_spValence el;
+    local charge = ctab(1)(CTAB_A_CHARGE);
+    local ion    = zero charge;
+
+    local bA     = ctab(2)(CTAB_B_FROM);
+    local bB     = ctab(2)(CTAB_B_TO);
+    local bO     = ctab(2)(CTAB_B_TYPE);
+
+	// Check whether there are hydrogens present.  Check, too, whether
+	// there are formal charges - integral, non-zero values.  Determine
+	// whether there are atoms adjacent to atoms with positive fc's, and
+	// whether there are H's connected to each atom.
+
+    local has_H   = orE (atno == 1);
+    local fcharge = zero charge, pneigh = zero charge;
+    local Hneigh  = zero charge;
+    if (add abs charge) > 0.1 then
+	idx = x_pack (((abs charge) >= 1) and ((mod1 charge) < 0.01));
+	fcharge[idx] = charge[idx];
+    endif
+
+    Hneigh = putadd [zero ion, bA | (atno[bB] == 1), 1];
+    Hneigh = putadd [Hneigh, bB | (atno[bA] == 1), 1];
+
+    pneigh = putadd [zero ion, bA | (fcharge[bB] >= 1), 1];
+    pneigh = putadd [pneigh, bB | (fcharge[bA] >= 1), 1];
+
+    local deg  = putadd [putadd [zero ion, bA, 1], bB, 1];
+    local nLP = putadd [putadd [zero ion, bA, el[bB]=='LP'], bB, el[bA]=='LP'];
+
+	// replace any aromatic bonds involving C.cat with single bonds
+
+    if orE (mask = (atype == 'C.cat')) then
+	(bO | bO == CTAB_BT_ARO and (mask[bA] or mask[bB])) = 1;
+    endif
+
+	// look at the aromatic subgraph paying attention to the
+	// terminal ar bonds to Group VI (O.co2, S.2, etc)
+	// which we will attempt to pair up into O=X-[O-] resonance
+
+    local nA = putadd [zero atype, bA | bO == CTAB_BT_ARO, 1];
+    nA = putadd [nA, bB | bO == CTAB_BT_ARO, 1];
+
+    local npi = zero atype;			// number of pi bonds
+
+    for i = 2, 4 loop
+	npi = putadd [putadd [npi, bA | bO == i, i], bB | bO == i, i];
+    endloop
+
+    local term_ar = (col == 6 and (deg - nLP) == 1 and nA > 0);
+
+    local arbond = graph_uneighbors ([bA,bB] || [term_ar[bA] or term_ar[bB]]);
+
+    if length arbond < length term_ar then
+	arbond = cat [arbond, rep [[], length term_ar - length arbond]];
+    endif
+
+    for i in x_pack (not term_ar and app length arbond > 1) loop
+	local cap = [0,0,0,0,1,1,2,3,0](inc col(i));	 // pi capacity
+	local Oco2 = sort arbond(i);
+
+	while length Oco2 > 1 while npi(i) < cap loop
+	    [idx, mask] = sam atype[Oco2];
+	    Oco2 = split[Oco2[idx], mtoc mask];
+	    Oco2 = Oco2[x_sort neg app length Oco2];
+
+	    if length Oco2(1) > 2 then
+		Oco2 = cat Oco2;
+	    else
+		Oco2 = cat Oco2;
+		Oco2 = Oco2[x_sort neg atno[Oco2]];
+	    endif
+
+	    term_ar(Oco2(1)) = -2;			// double bond
+	    term_ar(Oco2(2)) = -1;			// single bond
+	    npi(i) = inc npi(i);			// one more double bond
+
+	    Oco2 = drop [Oco2, 2];
+	endloop
+
+	ion[Oco2] = -1;
+	term_ar[Oco2] = -1;
+    endloop
+
+    if length (idx = x_pack (bO == CTAB_BT_ARO)) then
+	mask = term_ar[bA[idx]] == -2 or term_ar[bB[idx]] == -2;
+	bO[idx | mask] = 2;
+	idx = idx | not mask;
+
+	mask = term_ar[bA[idx]] == -1 or term_ar[bB[idx]] == -1;
+	bO[idx | mask] = 1;
+	idx = idx | not mask;
+    endif
+
+    arbond = term_ar = nA = [];
+
+	// remove any aromatic bonds that remain and assign single/double
+	// bonds.  We preferentially weight aromatic-type atoms
+
+    local n2 = putadd [putadd [zero ion, bA, bO == 2], bB, bO == 2];
+
+    if orE (bO == CTAB_BT_ARO) then
+	const WEIGHT = tr [
+	    [ 'C.2',	 5 ],
+	    [ 'C.ar',	 5 ],
+	    [ 'N.2',	 5 ],
+	    [ 'N.ar',	 5 ]
+	];
+	i = indexof [atype, WEIGHT(1)];
+	local Wa = mput [one atype, i, WEIGHT(2)[pack i]];
+
+	i = x_pack (bO == CTAB_BT_ARO);
+	mask = (
+	      (col[bA[i]] <> 5 and n2[bA[i]])
+	   or (col[bB[i]] <> 5 and n2[bB[i]])
+	);
+	bO[i | mask] = 1;
+	i = i | not mask;
+
+	mask = graph_maxmatch [bA[i], bB[i], Wa[bA[i]] + Wa[bB[i]]];
+	bO[i] = inc notnot mask;
+    endif
+
+	// special known atom types are assigned formal charges
+	// based upon the type of atom
+
+    local nO = select [bO, 1.5, bO <> CTAB_BT_ARO];
+    nO = select [0, bO, el[bA] == 'LP' or el[bB] == 'LP'];
+
+    local sumbo = putadd [putadd [zero ion, bA, nO], bB, nO];
+    sumbo = floor (sumbo + 1/12);
+
+    function SetIon [val, idx, mask]
+	ion[idx | mask] = val;
+	return idx | not mask;
+    endfunction
+
+    if length (idx = x_pack (col == 4)) then
+	idx  = SetIon [ 1, idx, atype[idx] == 'C.cat'];
+	idx  = SetIon [-1, idx, (pneigh[idx] and atype[idx] == 'C.1')];
+	mask = (abs fcharge[idx]) >= 1;
+	ion [idx | mask] = fcharge [idx | mask];
+	idx  = idx | not mask;
+	idx  = SetIon [-1, idx, sumbo[idx] >= 5];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 4];
+	idx  = SetIon [-1, idx, Hneigh[idx]];
+	ion[idx] = 0;		// vs. default to -1
+    endif
+
+    if length (idx = x_pack (el == 'O')) then
+	mask = (abs fcharge[idx]) >= 1;
+	ion [idx | mask] = fcharge [idx | mask];
+	idx  = idx | not mask;
+	idx  = SetIon [ 0, idx, sumbo[idx] == 2];
+	idx  = SetIon [-1, idx, atype[idx] == 'O.co2'];
+	idx  = SetIon [ 1, idx, sumbo[idx] >= 3];
+	idx  = SetIon [-1, idx, sumbo[idx] == 1 and atype[idx] == 'O.2'];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 0];
+	idx  = SetIon [-1, idx, has_H];
+	ion[idx] = 0;		// vs. default to -1
+    endif
+
+    if length (idx = x_pack (el <> 'O' and col == 6)) then
+	mask = (abs fcharge[idx]) >= 1;
+	ion [idx | mask] = fcharge [idx | mask];
+	idx  = idx | not mask;
+	idx  = SetIon [ 0, idx, sumbo[idx] >= 6];
+	idx  = SetIon [ 1, idx, sumbo[idx] == 5];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 4];
+	idx  = SetIon [ 1, idx, sumbo[idx] == 3];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 2];
+	idx  = SetIon [-1, idx, sumbo[idx] == 1 and atype[idx] == 'S.2'];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 0];
+	idx  = SetIon [-1, idx, has_H];
+	ion[idx] = 0;		// vs. default to -1
+    endif
+
+    if length (idx = x_pack (col == 5)) then
+	idx  = SetIon [1,  idx, atype[idx] == 'N.4'];
+	idx  = SetIon [-1, idx, ((atype[idx] == 'N.2') and (deg[idx] == 2) and
+				 (sumbo[idx] == 2))
+	];
+	mask = (abs fcharge[idx]) >= 1;
+	ion [idx | mask] = fcharge [idx | mask];
+	idx  = idx | not mask;
+	idx  = SetIon [ 1, idx, sumbo[idx] >= 6];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 5];
+	idx  = SetIon [ 1, idx, sumbo[idx] == 4];
+	idx  = SetIon [ 0, idx, sumbo[idx] == 3];
+	idx  = SetIon [-1, idx, Hneigh[idx]];
+	ion[idx] = 0;		// vs. default to -1
+    endif
+
+    if length (idx = x_pack (deg == 0)) then
+	ion[idx] = int charge[idx];
+    endif
+
+#if MODIFY_GUANIDINIUM
+
+	// Modify bonding for C.cat/N.pl3 groups
+
+    local Catneigh, tryN, ndx, iN, jC, ib;
+    if length (idx = x_pack (atype == 'N.pl3')) then
+	Catneigh = putadd [zero ion, bA | (atype[bB] == 'C.cat'), 1];
+	Catneigh = putadd [Catneigh, bB | (atype[bA] == 'C.cat'), 1];
+
+	idx = idx | andE [
+	    Catneigh[idx] == 1, deg[idx] == 3, not fcharge[idx],
+	    sumbo[idx] == 3
+	];
+	if length idx then
+	    tryN = idx[x_sort (2 - Hneigh[idx])];	// bond #3 is C.cat
+
+	    mask = (atype == 'C.cat');
+	    ndx  = x_pack (mask[bA] or mask[bB]);
+	    for iN in tryN loop
+		ib = ndx(x_pack ((bA[ndx] == iN) or (bB[ndx] == iN)));
+		jC = [bA(ib), bB(ib)] | not ([bA(ib), bB(ib)] == iN);
+		if ion(jC) then
+		    ion(jC) = ion(jC) - 1;
+		    ion(iN) = ion(iN) + 1;
+		    bO(ib)  = CTAB_BT_2;
+		endif
+	    endloop
+	endif
+    endif
+#endif
+
+    // replace the modified quantities and return
+    ctab(1)(CTAB_A_SYM)    = el;
+    ctab(1)(CTAB_A_CHARGE) = ion;
+    ctab(2)(CTAB_B_TYPE)   = bO;
+
+    return ctab;
+endfunction
+
+// Make sure both amino and nucleic acids are res-typed correctly
+// (set RNA if the residue contains the properly-named, extra oxygen)
+
+local function SetResTypes [mdata, mol, res_name, substr_id]
+    local res_type = select [
+	'amino', 'none', indexof [res_name, pro_StandardRes []]
+    ];
+
+    local ndx = x_sort mdata.asubstr;
+    local na  = btoc mdata.asubstr[ndx];
+    local an  = split [(mol_aName mol)[ndx], na], i;
+
+    for i in x_pack indexof [res_name, DNA_RES] loop
+	res_type(i) = 'dna';
+	if anytrue indexof [an(substr_id(i)), ['O2*', 'O2\'']] then
+	    res_type(i) = 'rna';
+	endif
+    endloop
+
+    return res_type;
+endfunction
+
+// fread_TriposMOL2 reads a molecule from a tripos file (returning a mol)
+// We are given an unget_buff which consists of a possible vector of lines
+// to be read first
+
+
+// ImportTriposMOL2
+// options - tagged vector of options as follows:
+//	overwrite:  if set overwrite records starting at entry 1
+//	file_field: if set then write file name in database field
+
+
+// Wrapper function so we have a function name which stick to
+// db_Import*** naming convention.
+
+function db_ImportMOL2;
+
+
+
+// ================================ WRITING ===================================
+
+// ChainNames calculates the chain names from a mol structure, looking
+// at the MOL_CHAIN_NAME.  We try to match the pattern ctag.letter to
+// preserve PDB naming conventions
+
+local function ChainNames mol
+    local i;
+
+    local cname = resize [mol(2)(MOL_CHAIN_NAME), l_length mol(2)];
+    local ctag = resize [mol(2)(MOL_CHAIN_TAG), l_length mol(2)];
+
+	// determine which of the names is of the form ctag.
+	// and remove the tag prefix
+
+    for i = 1, l_length [cname, ctag] loop
+	local n = string cname(i), t = string ctag(i);
+	cname(i) = token (n = mput [n, isspace n, "_"]);
+	ctag(i) = token (t = mput [t, isspace t, "_"]);
+	if cat [t,"."] === keep [n, length t + 1] then
+	    cname(i) = token drop [n, length t + 1];
+	elseif t === keep [n, length t] then
+	    cname(i) = EMPTY;
+	endif
+    endloop
+
+    (cname | isspace cname) = EMPTY;
+
+	// Make sure that the chain names are uniq; for those that
+	// are not, add in some numbers.  Don't change cname == EMPTY.
+
+    local [idx, mask] = sam cname;
+    cname = split [cname[idx], mtoc mask];
+
+    for i in x_pack (app length cname > 1) loop
+	if alltrue (cname(i) == EMPTY) then
+	    cname(i) = tok_cat ['Q', totok x_id cname(i)];
+	else
+	    cname(i) = tok_cat [cname(i), totok x_id cname(i)];
+	endif
+    endloop
+
+    cname = put [cname, idx, cat cname];
+
+    return cname;
+endfunction
+
+// WriteAmberFromCTAB writes out a molecule from a CTAB structure and a
+// possible mol structure (for proteins).  We believe whatever data is in
+// the ctab structure - it is assumed that atom types and bond orders
+// have been set to the correct tripos values.
+
+const CTAB_BT_AM = inc CTAB_BT_ARO;		// am amide bond
+
+local function WriteAmberFromCTAB [fnum, ctab, mol, extra_lines]
+
+	// fix up the input in preparation for writing
+
+    if orE (app length ctab(1) <> l_length ctab(1)) then
+	ctab(1) = apt resize [ctab(1), l_length ctab(1)];
+    endif
+    if orE (app length ctab(2) <> l_length ctab(2)) then
+	ctab(2) = apt resize [ctab(2), l_length ctab(2)];
+    endif
+    if orE (app length mol(2) <> l_length mol(2)) then
+	mol(2) = apt resize [mol(2), l_length mol(2)];
+    endif
+    if orE (app length mol(3) <> l_length mol(3)) then
+	mol(3) = apt resize [mol(3), l_length mol(3)];
+    endif
+    if orE (app length mol(4) <> l_length mol(4)) then
+	mol(4) = apt resize [mol(4), l_length mol(4)];
+    endif
+
+	// extract the residue data from the tag-along mol structure.
+	// if is null then we invent an empty one
+
+    local molname = token mol(1)(MOL_NAME);
+
+    if l_length mol(2) == 0 then
+	mol(2)(MOL_CHAIN_NAME)   = '';
+	mol(2)(MOL_CHAIN_HEADER) = '';
+	mol(2)(MOL_CHAIN_TAG)    = '';
+	mol(2)(MOL_CHAIN_NRES)   = 1;
+
+	mol(3)(MOL_RES_NAME)   = '';
+	mol(3)(MOL_RES_NATOMS) = l_length ctab(1);
+	mol(3)(MOL_RES_TYPE)   = 'none';
+	mol(3)(MOL_RES_UID)    = 1;
+	mol(3)(MOL_RES_INS)    = " ";
+
+	mol(4)(MOL_ATOM_NAME) = tok_cat [
+	    mol(4)(MOL_ATOM_EL), totok x_id mol(4)(MOL_ATOM_EL)
+	];
+	mol(4)(MOL_ATOM_BACKBONE) = rep [0, l_length mol(4)];
+    endif
+
+    if molname == '' then
+	if orE (mol(2)(MOL_CHAIN_TAG) <> '') then
+	    molname = first diff [mol(2)(MOL_CHAIN_TAG), ''];
+	elseif orE (mol(2)(MOL_CHAIN_NAME) <> '') then
+	    molname = first diff [mol(2)(MOL_CHAIN_NAME), ''];
+	elseif orE (mol(2)(MOL_CHAIN_HEADER) <> '') then
+	    molname = first diff [mol(2)(MOL_CHAIN_HEADER), ''];
+	endif
+	if molname == '' then
+	    molname = 'NONAME';
+	endif
+    endif
+
+    local res_natoms = mol(3)(MOL_RES_NATOMS);
+    local res_name   = mol(3)(MOL_RES_NAME);
+    local res_type   = mol(3)(MOL_RES_TYPE);
+    local res_id     = igen l_length mol(3);
+    local res_class  = select [res_name, EMPTY,
+	andE [res_name <> '', res_name <> '*']
+    ];
+    local res_chain  = stretch [ChainNames mol, mol(2)(MOL_CHAIN_NRES)];
+
+	// Sybyl dislikes residues starting with a number - prefix Q.
+	// If the residue name is '', change it to '<n>' where n is the
+	// residue ID.
+
+    local m = res_name == '', tname = tok_cat ['<', totok res_id, '>'];;
+    res_name | m = tname | m;
+
+    local idx = x_pack isdigit app first app string res_name;
+    res_name[idx] = tok_cat ['Q', res_name[idx]];
+
+	// Reflect the molecule being written out - small/large, etc.
+	// Biopolymers use rUID's, small molecules do not.  Biopolymers
+	// contain 1+ amino acid and/or nucleic acid.
+
+    const AMINO   = ['amino', 'l-amino', 'd-amino'];
+    const NUCLEIC = ['rna', 'dna'];
+
+//  local prot_check = s_add [notnot indexof [res_type, AMINO],
+//	mol(2)(MOL_CHAIN_NRES)
+//  ];
+//  local nucl_check = s_add [notnot indexof [res_type, NUCLEIC],
+//	mol(2)(MOL_CHAIN_NRES)
+//  ];
+
+	// use dict_index = 4 (macromol) - avoid 0's
+
+    local mol_type = 'SMALL', dict_index = 4, m2;
+    local tr_res_type = rep ['GROUP', length res_name];
+
+//  if anytrue ((prot_check > 4) or (nucl_check > 4)) then
+    if anytrue indexof [res_type, cat [AMINO, NUCLEIC]] then
+	mol_type = 'BIOPOLYMER';
+
+	idx = x_pack andE [indexof [res_type, 'rna'],
+	    tok_length res_name == 1, res_name <> '*'
+	];
+	res_class[idx] = tok_cat ['r', res_class[idx]];
+
+	idx = x_pack andE [indexof [res_type, 'dna'],
+	    tok_length res_name == 1, res_name <> '*'
+	];
+	res_class[idx] = tok_cat ['d', res_class[idx]];
+
+	m  = indexof [res_type, cat [AMINO, NUCLEIC]];
+	m2 = indexof [res_name, WATER_RES];
+	m  = not (m or m2);
+	res_class | m       = EMPTY;
+	tr_res_type | not m = 'RESIDUE';
+
+    else
+	res_class = rep [EMPTY, length res_name];
+    endif
+
+	// Add rUID's to output residue names for biopolymers.  Generate
+	// them as needed to differentiate residues.  The following name
+	// convention is used:
+	//
+	// 	ALA, rUID=3:	ALA3
+	//	ALA, rUID=-3:	ALA_3
+	//	BC5, rUID=3:	BC5_3
+	//	BC5, rUID=-3:	BC5__3
+
+    if mol_type == 'BIOPOLYMER' then
+	local r_id = mol(3)(MOL_RES_UID);
+
+	    // Generate rUID's if ALL are zero
+
+	if allfalse r_id then r_id = x_id r_id; endif
+
+	if length (idx = x_pack (res_name <> '' and res_name <> '*')) then
+	    local under_check = select ['_', '',
+		isdigit app last app string res_name
+	    ];
+	    local minus_check = rep ['', length res_name];
+	    minus_check[idx]  = select ['_', '', r_id[idx] < 0];
+
+	    res_name[idx] = tok_cat [
+		res_name[idx], under_check[idx], minus_check[idx],
+		totok abs r_id[idx]
+	    ];
+
+	    idx = idx | mol(3)(MOL_RES_INS)[idx] <> " ";
+	    res_name[idx] = tok_cat [
+		res_name[idx], app token mol(3)(MOL_RES_INS)[idx]
+	    ];
+	endif
+    endif
+
+	// Collect unlabeled residues into <n> nomenclature
+
+    if length (idx = x_pack (res_name == '' or res_name == '*')) then
+	res_name[idx] = tok_cat ['<', totok res_id[idx], '>'];
+    endif
+
+	// extract some atom data
+
+    local resnum = stretch [igen l_length mol(3), mol(3)(MOL_RES_NATOMS)];
+    local backbone = mol(4)(MOL_ATOM_BACKBONE);
+    local aname = mol(4)(MOL_ATOM_NAME);
+
+    local res_alpha = backbone and (
+	(
+	        stretch [indexof [res_type,AMINO], res_natoms]
+	    and aname == 'CA'
+	) or (
+	        stretch [indexof [res_type,NUCLEIC], res_natoms]
+	    and aname == 'P'
+	)
+    );
+    res_alpha = app first app pack split [
+	select [x_id res_alpha, 0, res_alpha], res_natoms
+    ];
+    res_alpha | app isnull res_alpha = 0;
+
+	// Use the heavy atom closest to the centroid of any residue not
+	// already assigned a root atom.  If there are no heavy atoms,
+	// use the first atom.  We assume the root is what the
+	// fragment rotates/translates about...
+
+    local first_atom = inc ((pscan res_natoms) - res_natoms);
+    first_atom | (res_natoms == 0) = 0;
+
+    local Z = el_Protons mol(4)(MOL_ATOM_EL);
+    local i;
+    for i in x_pack (res_alpha == 0) loop
+	local ndx = x_pack ((resnum == i) and (Z > 1));
+	if length ndx then
+	    local respos = apt get [
+		ctab(1)[[CTAB_A_X, CTAB_A_Y, CTAB_A_Z]], [ndx]
+	    ];
+	    local ctr    = app add respos / length ndx;
+	    res_alpha(i) = ndx(x_min norm (respos - ctr));
+	else
+	    res_alpha(i) = first_atom(i);
+	endif
+    endloop
+
+	// write the header data out to the file followed by the
+	// atoms, bonds, substructures and sets
+
+#if 0
+    local rescount = select [0, length res_id,	// suppress substructures
+	    andE (res_id == 1)
+	and andE (res_name == '>')
+    ];
+#else
+    local rescount = length res_id;
+#endif
+
+    fwrite [fnum, '@<TRIPOS>MOLECULE\n'];
+    fwrite [fnum, '{}\n', first wordsplit [string molname, "\012\015"]];
+    fwrite [fnum, '{} {} {} {} {} {}\n',
+	l_length ctab(1),			// atom count
+	l_length ctab(2),			// bond count
+	rescount,				// substructure count
+	0,					// feature count
+	0					// set count
+    ];
+
+    local no_charges = (max abs ctab(1)(CTAB_A_CHARGE) < 0.00005);
+
+    fwrite [fnum, '{}\n', mol_type];
+    fwrite [fnum, '{}\n', select ['NO_CHARGES', 'USER_CHARGES', no_charges]];
+    fwrite [fnum, '\n'];
+    fwrite [fnum, '\n'];
+
+	// write the atoms
+
+    local atomfmt = twrite [
+	'{{n:{}}'
+	' {{t:-{}}'
+	' {{n:10.4f} {{n:10.4f} {{n:10.4f}'
+	' {{t:-5}'
+	' {{n:{}}'
+	' {{t:-{}}'
+	' {{n:8.4f}'
+	' {{t:{}}'
+	'\n',
+	max [3, 1 + floor (log10 max [1, l_length ctab(1)])],
+	max [4, max tok_length aname],
+	1 + floor (log10 max [1, length res_id]),
+	max [1, max tok_length res_name]
+    ];
+
+    fwrite [fnum, '@<TRIPOS>ATOM\n'];
+    apt fwrite [fnum, atomfmt,
+	igen l_length ctab(1),
+	select [aname, '*', aname <> ''],
+	ctab(1)(CTAB_A_X),
+	ctab(1)(CTAB_A_Y),
+	ctab(1)(CTAB_A_Z),
+	select [aname, '*', aname <> ''],
+	stretch [res_id, res_natoms],
+	stretch [res_name, res_natoms],
+	ctab(1)(CTAB_A_CHARGE),
+	select ['BACKBONE', '', backbone]
+    ];
+
+//    fwrite [fnum, '@<TRIPOS>ATOM\n'];
+//    apt fwrite [fnum, atomfmt,
+//	igen l_length ctab(1),
+//	select [aname, '*', aname <> ''],
+//	ctab(1)(CTAB_A_X),
+//	ctab(1)(CTAB_A_Y),
+//	ctab(1)(CTAB_A_Z),
+//	ctab(1)(CTAB_A_SYM),
+//	stretch [res_id, res_natoms],
+//	stretch [res_name, res_natoms],
+//	ctab(1)(CTAB_A_CHARGE),
+//	select ['BACKBONE', '', backbone]
+//   ];
+
+
+	// write the bonds block
+
+    const BONDSYM = ['1','2','3','ar','am'];
+
+    local bfrom = ctab(2)(CTAB_B_FROM);
+    local bto   = ctab(2)(CTAB_B_TO);
+
+    local bondorder = int round ctab(2)(CTAB_B_TYPE);
+
+    bondorder[x_pack (bondorder <= 0)] = 1;
+    bondorder[x_pack (bondorder >= 3 and bondorder < CTAB_BT_ARO)] = 3;
+
+    idx = x_pack (bondorder >= CTAB_BT_ARO);
+    bondorder[idx] = 4 + (bondorder[idx]-CTAB_BT_ARO);
+
+    bondorder = minE [bondorder, length BONDSYM];
+
+    local bondflags = ['','BACKBONE','INTERRES','BACKBONE|INTERRES'][ inc (
+	      (backbone[bfrom] and backbone[bto])
+	+ 2 * (resnum[bfrom] <> resnum[bto])
+    )];
+
+    local bondfmt = twrite [
+	'{{n:{}} {{n:{}} {{n:{}}  {{t:-3} {{}\n',
+	max [3, 1 + floor (log10 max [1, l_length ctab(2)])],
+	max [3, 1 + floor (log10 max [1, l_length ctab(1)])],
+	max [3, 1 + floor (log10 max [1, l_length ctab(1)])]
+    ];
+
+    fwrite [fnum, '@<TRIPOS>BOND\n'];
+    apt fwrite [fnum, bondfmt,
+	igen l_length ctab(2),			// bond number
+	bfrom,					// bond source
+	bto,					// bond destination
+	BONDSYM[bondorder],			// bond order symbol
+	bondflags				// bond flags
+    ];
+
+	// write out the substructures, turning any "<n>" residue names
+	// into "****" - we assume < 9999 of them
+
+    ndx           = x_findmatch [['<#>', '<##>', '<###>', '<####>'], res_name];
+    res_name[ndx] = EMPTY;
+
+        // Determine the #interresidue bonds for each substructure and
+	// write the corrected substructure records
+
+    local n_off_res = zero igen rescount;
+    ndx             = x_pack (resnum[bfrom] <> resnum[bto]);
+    n_off_res       = putadd [n_off_res, resnum[bfrom[ndx]], 1];
+    n_off_res       = putadd [n_off_res, resnum[bto[ndx]], 1];
+
+    if rescount > 0 then
+	local subfmt = twrite [
+	   '{{n:{}} {{t:-{}} {{n:{}} {{t:-{}} {} {{t:-{}} {{t:-{}}'
+	   ' {{n:{}}\n',
+	    max [3, 1 + floor (log10 max [1, max res_id])],
+	    max [1, max tok_length res_name],
+	    max [3, 1 + floor (log10 max [1, max res_alpha])],
+	    max [1, max tok_length tr_res_type],
+	    dict_index,
+	    max [1, max tok_length res_chain],
+	    max [1, max tok_length res_class],
+            max [1, 1 + floor (log10 max [1, max n_off_res])]
+	];
+	apt fwrite [fnum, '@<TRIPOS>SUBSTRUCTURE\n'];
+	apt fwrite [fnum, subfmt,
+	    res_id, res_name, res_alpha,
+	    tr_res_type,
+	    res_chain, res_class, n_off_res
+	];
+    endif
+
+	// write out the additional data
+
+    if length extra_lines then
+	apt fwrite [fnum, '{}\n', extra_lines];
+    endif
+
+    fwrite [fnum, '# MOE {n:.2f} (io_trps.svl {n:.2f})\n',
+	MOE_VERSION, atof (modenv[]).version
+    ];
+endfunction
+
+// AdjustCTAB adjusts a given CTAB structure so that it is in proper
+// tripos form: atom types and bond orders.  WARNING! we assume that
+// aromatic bonds have been set, otherwise no aromatic types will result
+// Also, we assume that the HCOUNT field indicates any implicit H's
+
+local function AdjustCTAB [ctab, mode]
+    local i, j, idx, mask;
+
+    local ion = resize [ctab(1)(CTAB_A_CHARGE), l_length ctab(1)];
+    local el = resize [ctab(1)(CTAB_A_SYM), l_length ctab(1)];
+    local impH = maxE [0, ctab(1)(CTAB_A_HCOUNT)];
+
+    local bA = ctab(2)(CTAB_B_FROM), bB = ctab(2)(CTAB_B_TO);
+    local [mol, [atno, bO]] = mol_ExtractFromCTAB ctab;
+
+    ion = mol(4)(MOL_ATOM_ION);
+
+    local nLP = putadd [putadd [zero ion, bA, el[bB]=='LP'], bB, el[bA]=='LP'];
+    local hav = putadd [putadd [zero ion, bA, atno[bB]>1], bB, atno[bA]>1];
+
+	// Calculate the number of neighbors for each atom, less the number
+	// of explicit lone pairs - this was causing problems wrt #implicit
+	// hydrogens
+
+    local deg = putadd [putadd [zero ion, bA, one bB], bB, one bA];
+    local xdeg = deg + impH - nLP;
+
+	// extend the valence and then further extend the [N+][O-] pairs
+	// where possible for further extended valence.  We only extend
+	// up to a given capacity for each atom (aro bonds are 1.5)
+
+    const ATOMINFO = [
+    	// row2 = bond order capacity, row3 = Pauling electronegativity
+    	['B',  'C',  'N',  'O',  'P',  'S',  'As',  'Se',  'Te' ],
+	[ 4,    4,    5,    3,    6,    6,    6,     6,     6   ],
+	[ 1.57, 2.55, 3.04, 3.44, 2.19, 2.58, 2.18,  2.55,  2.10]
+    ];
+    local aipos = indexof [el, ATOMINFO(1)];
+    local eneg = (cat [0, ATOMINFO(3)])[inc aipos];
+
+    const CAPACITY = [
+    	['B',  'C',  'N',  'O',  'P',  'S',  'As',  'Se',  'Te' ],
+	[ 4,    4,    5,    3,    6,    6,    6,     6,     6   ]
+    ];
+
+    i = indexof [el, CAPACITY(1)];
+    local cap = (mput [zero el, i, CAPACITY(2)[pack i]] - impH + nLP);
+
+    local norder = select [1.5, bO, bO == CTAB_BT_ARO];
+    local sumbo = putadd [putadd [zero ion, bA, norder], bB, norder] + impH;
+
+    idx = x_pack (bO == 1 or bO == 2 and ion[bA] and ion[bB]);
+
+    loop
+	idx = idx | norder[idx] < 3;
+	idx = idx | ion[bA[idx]] * ion[bB[idx]] < 0;
+	idx = idx | (
+	    sumbo[bA[idx]] < cap[bA[idx]] and sumbo[bB[idx]] < cap[bB[idx]]
+	);
+	if isnull idx then break; endif		// all done
+
+	local w = 10 - abs (eneg[bA[idx]] - eneg[bB[idx]]);
+	mask = graph_maxmatch [bA[idx], bB[idx], w];
+
+	i = idx|mask;				// increase formal order
+	bO[i] = inc bO[i];
+	norder[i] = norder[i] + 1;
+
+	j = bB[i];
+	i = bA[i];
+
+	sumbo[i] = sumbo[i] + 1;		// increase numerical order
+	sumbo[j] = sumbo[j] + 1;
+	ion[i] = int (ion[i] - sign ion[i]);	// merge charges
+	ion[j] = int (ion[j] - sign ion[j]);
+    endloop
+
+    local effatno = atno - ion;			// effective atno
+
+    sumbo = ceil sumbo;
+
+	// determine the full list of aromatic bonds and then retain
+	// only the six-ring aromatics
+	// !!! CALCULATE FROM SCRATCH
+
+    local arobond = (ctab(2)(CTAB_B_TYPE) == CTAB_BT_ARO);
+    local aroatom = put [zero ion, cat ([bA,bB] || [arobond]), 1];
+
+    idx = cat graph_scycle_list graph_uneighbors ([bA,bB] || [arobond]);
+    idx = idx | app length idx == 6;
+    [i,j] = [cat idx, cat app rotr idx];
+
+    idx = pack indexof [
+	minE[i ,j ] * l_length ctab(1) + maxE[i ,j ],
+	minE[bA,bB] * l_length ctab(1) + maxE[bA,bB]
+    ];
+
+    bO[idx] = CTAB_BT_ARO;
+
+	// locate [N+1]=[C+0] and convert to [N+0]-[C+1] (for NCN resonance)
+	// locate [O+1]=[C+0] and convert to [O+1]-[C+1] for oxonium
+
+    function AdjacentTo amask
+	local adj = putadd [zero ion, bA | amask[bB], 1];
+	return putadd [adj, bB | amask[bA], 1];
+    endfunction
+
+    function Carbocation [Amask, Bmask]
+	local i = x_pack (
+	    bO == 2 and (Amask[bA] and Bmask[bB] or Amask[bB] and Bmask[bA])
+	);
+	bO[i] = 1;
+	ion[bA[i]] = select [1, 0, el[bA[i]] == 'C'];
+	ion[bB[i]] = select [1, 0, el[bB[i]] == 'C'];
+    endfunction
+
+    local n2 = putadd [putadd [zero ion, bA, bO == 2], bB, bO == 2];
+
+    Carbocation [
+	(
+	        el == 'C' and ion == 0 and n2 == 1)
+	    and AdjacentTo (el == 'N' and ion == 0 and not n2 and sumbo <= 3
+	),
+	(el == 'N' and ion == 1 and n2 == 1)
+    ];
+
+    Carbocation [
+	el == 'C' and ion == 0 and n2 == 1,
+	el == 'O' and ion == 1 and n2 == 1
+    ];
+
+	// Determine the bond types associated with each atom.
+
+    local atype = el;
+    local baro = (bO == CTAB_BT_ARO);
+
+    local n1 = putadd [putadd [zero ion, bA, bO == 1], bB, bO == 1];
+          n2 = putadd [putadd [zero ion, bA, bO == 2], bB, bO == 2];
+    local n3 = putadd [putadd [zero ion, bA, bO == 3], bB, bO == 3];
+    local nA = putadd [putadd [zero ion, bA, baro   ], bB, baro   ];
+
+    local n23 = n2 + n3;
+
+    [idx, mask] = sam el;
+    local tel = tag [el[idx]|mask, split [idx, mtoc mask]];
+
+	// determine adjacency information used to determine conjugation
+	// amCO : causes adj N.3 to become N.am (C=O, C=S, S=O)
+
+    [i,j] = apt get [ [bA,bB], [x_pack (bO == 2)] ];
+
+    local amCO = putadd [ zero ion, i,
+	   (el[i] == 'C' and (el[j] == 'O' or el[j] == 'S'))
+	or (el[i] == 'S' and el[j] == 'O')
+    ];
+    amCO = putadd [ amCO, j,
+	   (el[j] == 'C' and (el[i] == 'O' or el[i] == 'S'))
+	or (el[j] == 'S' and el[i] == 'O')
+    ];
+
+	// assign the preliminary atom types based upon the
+	// formal bond orders
+
+    function SetType [t, idx, mask]
+	if not orE mask then return idx; endif
+	atype[idx | mask] = t;
+	return idx | not mask;
+    endfunction
+
+    if length (i = tel.C) then
+	i = SetType ['C.3', i, xdeg[i] >= 4];				// CX4
+	i = SetType ['C.1', i, xdeg[i] < 3 and (n2[i] > 1 or n3[i])];	// sp
+	i = SetType ['C.1', i, ion[i] > 0 and n23[i]];			// =C+-
+	i = SetType ['C.cat', i, ion[i] > 0 and not nA[i]];		// >C+-
+	i = SetType ['C.3', i, not (n23[i] or nA[i])];			// sp3
+	i = SetType ['C.ar', i, nA[i] >= 2];				// aro
+	i = SetType ['C.2', i, n23[i]];					// sp2
+	atype[i] = 'C.3';
+    endif
+
+    if length (i = tel.P) then
+	atype[i] = 'P.3';
+    endif
+
+    if length (i = tel.S) then
+	i = SetType ['S.o2', i, sumbo[i] >= 5 ];
+	i = SetType ['S.o' , i, sumbo[i] >= 4 ];
+	i = SetType ['S.3' , i, xdeg[i]  >= 4 ];
+	i = SetType ['S.2' , i, n23[i]	      ];
+	atype[i] = 'S.3';
+    endif
+
+    function InSmallRing I
+	local xbond = mol(4)(MOL_ATOM_BONDS);
+	local J, K, L;
+
+	for J in xbond(I) loop
+	    for K in diff [xbond(J),I] loop
+		for L in diff [xbond(K),J] loop
+		    if L == I then return 1; endif
+		    if indexof [I, diff [xbond(L),[J,K]]] then return 1; endif
+		endloop
+	    endloop
+	endloop
+
+	return 0;
+    endfunction
+
+    if length (i = tel.N) then
+	i = SetType ['N.4'  , i, xdeg[i] >= 4];
+	i = SetType ['N.1'  , i, xdeg[i] <  3 and (n3[i] or n2[i] > 1)];
+
+	if mode == 'gold' then
+	    i = SetType ['N.pl3', i, aroatom[i] and xdeg[i] == 3];
+	endif
+
+	i = SetType ['N.ar' , i, nA[i] >= 2 ];
+	i = SetType ['N.pl3', i, sumbo[i] >= 5];
+	i = SetType ['N.pl3', i, aroatom[i] and xdeg[i] == 3];
+	i = SetType ['N.2'  , i, n23[i]];
+
+	if orE (mask = atype == 'C.cat' or (xdeg < 4 and effatno == 5)) then
+	    i = SetType ['N.pl3', i, xdeg[i] == 3 and (AdjacentTo mask)[i]];
+	endif
+	if orE amCO then
+	    i = SetType ['N.am', i, xdeg[i] == 3 and (AdjacentTo amCO)[i]];
+	endif
+
+	i = SetType ['N.3', i, app InSmallRing i];		// 3-4 rings
+
+	mask = (xdeg < 4 and (n23 or nA or aroatom));		// "pi" atoms
+	idx = AdjacentTo mask;					// conj count
+
+	i = SetType ['N.3', i, not idx[i]];			// 0 conj
+	i = SetType ['N.2', i, xdeg[i] < 3];			// D2 conj
+	i = SetType ['N.pl3', i, hav[i] < 3];			// N.pl3H etc.
+	i = SetType ['N.pl3', i, idx[i] > 1];			// 2 conj
+
+	atype[i] = 'N.pl3';
+    endif
+
+    if length (i = tel.O) then
+	i = SetType['O.2', i, n23[i] or nA[i]];
+	atype[i] = 'O.3';
+    endif
+
+	// look for terminal oxygens that may require resonance with
+	// double bonds and negative charges (carboxylate, etc.)
+	// make the types O.co2 then set the bond orders to aro
+	// Take the opportunity to patch NO2 if pentavalent N's not used
+
+    mask = (xdeg == 1 and el == 'O' and ion <= 0);
+
+    for i in x_pack (not n3 and AdjacentTo mask > 1) loop
+	idx = x_pack (
+	       bA == i and mask[bB]
+	    or bB == i and mask[bA]
+	);
+	j = diff [cat [bA[idx], bB[idx]], i];
+	j = j[x_sort ion[j]];				// <0 first
+	if andE (ion[j] >= 0) then continue; endif	// all 0's
+
+	if atype(i) == 'N.2' and n2(i) == 1 and ion(i) == 1 then
+	    if length j == 2 then
+		ion[append[j,i]] = 0;			// nitro
+		atype(i) = 'N.pl3';
+		atype[j] = 'O.2';
+		bO[idx] = 2;
+		continue;
+	    endif
+	    if length j == 3 and add ion[j] <= -2 then
+		ion(first j) = 0;
+		ion(i) = 0;
+		atype(i) = 'N.pl3';
+	    endif
+	endif
+
+	if ion(i) <> 0 then continue; endif
+
+	ion[j] = (add ion[j] * invz length j);
+	atype[j] = 'O.co2';
+	bO[idx] = CTAB_BT_ARO;
+    endloop
+
+	// look for terminal sulfurs in the same way as O.co2 but
+	// set the type to O.2 if there is such resonance
+
+    mask = (xdeg == 1 and el == 'S' and ion <= 0);
+
+    for i in x_pack (not n3 and AdjacentTo mask > 1) loop
+	idx = x_pack (
+	       bA == i and mask[bB]
+	    or bB == i and mask[bA]
+	);
+	j = diff [cat [bA[idx], bB[idx]], i];
+	if andE (ion[j] >= 0) then continue; endif	// all 0's
+	if ion(i) <> 0 then continue; endif
+
+	ion[j] = (add ion[j] * invz length j);
+	atype[j] = 'S.2';
+	bO[idx] = CTAB_BT_ARO;
+    endloop
+
+	// set the bond order of N.am to amCO atoms to "am"
+	// set the bond order of N.pl3 to C.cat to "ar"
+
+    mask = (						// N.am-C=O
+	   atype[bA] == 'N.am' and amCO[bB]
+	or atype[bB] == 'N.am' and amCO[bA]
+    );
+    (bO | mask) = CTAB_BT_AM;
+
+    mask = (						// N.pl3-C.cat
+	   atype[bA] == 'N.pl3' and atype[bB] == 'C.cat'
+	or atype[bB] == 'N.pl3' and atype[bA] == 'C.cat'
+    );
+    (bO | mask) = CTAB_BT_ARO;
+
+	// replace the updated ctab values and return the new data
+
+    ctab(1)(CTAB_A_CHARGE) = ion;
+    ctab(1)(CTAB_A_SYM) = atype;
+    ctab(2)(CTAB_B_TYPE) = bO;
+
+    return ctab;
+endfunction
+
+// WriteTriposMOL2 will write Tripos .mol2 (sybyl) files.  We write out
+// each molecule (detected by connectivity).
+
+local function write_molecule [fnum, atoms, mode, mol_name]
+    local ctab = ctab_Extract [atoms, [
+	aro:		1,
+	xvalence:	0
+    ]];
+
+    local mol = mol_Extract atoms;		// for residue info
+    if anytrue mol_name then
+	mol(1)(MOL_NAME) = token mol_name;
+    endif
+    ctab = AdjustCTAB [ctab,mode];		// assign types, etc.
+
+    if max abs mol(4)(MOL_ATOM_CHARGE) >= 0.00005 then
+	ctab(1)(CTAB_A_CHARGE) = mol(4)(MOL_ATOM_CHARGE);
+    endif
+
+    WriteAmberFromCTAB [fnum, ctab, mol, mode];
+endfunction
+
+global function fwrite_AmberMOL2 [filename, mol_object, opt]
+    local fh = fopenw filename;
+    local mode = token opt.mode;    // write mode: e.g., 'gold'
+
+	// Determine which atoms to write; we do not write empty residues.
+
+    local atoms = uniq cat oAtoms cat mol_object;
+	
+	// Divide the atoms into groups, each group to be written to a
+	// separate molecule area. The rules are:
+	//  1) atoms in the same chain are in the same group.
+	//  2) chains that share a non-null ('') tag are in the same group.
+	//  3) tags that share a molecule number are in the same group.
+	//
+	// Groups are to be written in cNumber (Sequence Editor) order.
+
+    local [idx, seg] = sac cNumber aChain atoms;
+    atoms = split [atoms[idx], seg];		    // 1) Split by chain.
+	
+	// mol_Extract assigns the first non-null chain tag to MOL_NAME,
+	// otherwise it assigns the first non-null chain name.
+	// We would prefer the chain name for single chain molecules.
+	// [small molecule vs protein molecule issue]
+
+    local mol_name = cName aChain app first atoms;
+
+	// Build a neighbor list using tags and calculate connected components.
+
+    if length atoms > 1 then
+	local ctags = cTag aChain app first atoms;
+	local nlist = app x_pack (ctags == [ctags] and ctags <> '');
+
+	idx = graph_ccomponent_list nlist;	    // 2) Join by tag.
+
+	if length idx < length atoms then
+	    idx = idx[x_sort app min idx]; // (necessary?)
+	    seg = app length idx;
+	    atoms = app cat split [atoms[idx = cat idx], seg];
+	    mol_name = app uniq app cat split [mol_name[idx], seg];
+	endif
+
+	if length atoms > 1 then
+		
+		
+	    // Build a neighbor list from molecule numbers and
+	    // calculate connected components.
+
+	    nlist = rep [[], length atoms];
+	    local imol = app sortuniq aMoleculeNumber atoms;
+
+	    local i, x = x_id atoms;
+	    for i = 1, dec length x loop
+			nlist(i) = i + x_pack app length apt join [
+		    [imol(i)], imol[x = dropfirst x]
+		];
+	    endloop
+
+	    idx = graph_ccomponent_list nlist;    // 3) Join by molecule.
+
+	    if length idx <= length atoms then
+		idx = idx[x_sort app min idx];	// (necessary?)
+		seg = app length idx;
+		atoms = app cat split [atoms[idx = cat idx], seg];
+		mol_name = app uniq app cat split [mol_name[idx], seg];
+	    endif
+	endif
+    endif
+	
+    [atoms, mol_name] = [atoms, mol_name] || [app length atoms];
+
+	// Write out each of the atom groups. If the mol_name is '',
+	// then mol_Extract in write_molecule will choose the MOL_NAME;
+	// cTag, if non-null, else first non-null cName.
+
+    mol_name = mol_name || mol_name <> '';
+    mol_name | app length mol_name <> 1 = '';
+	
+    for i = 1, length atoms loop
+ 		write_molecule [fh, atoms(i), mode, mol_name(i)];
+    endloop
+
+    if fh then fclose fh; endif
+endfunction
+
+global function: WriteAmberMOL2 [filename,options]
+    [filename,[],options] = Write_Prompt[filename,'tripos',options];
+    fwrite_AmberMOL2 [filename, Atoms [], options];
+endfunction
+
+// db_ExportTriposMOL2 exports a moe database to tripos format.
+//
+//	options
+//	    .esel	selected entries only
+function db_ExportTriposMOL2;
+
+// #eof
+

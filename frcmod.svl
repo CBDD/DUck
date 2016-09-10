@@ -1,0 +1,402 @@
+#svl
+//	frcmod.svl
+//
+//	05-apr-2011 (ps) created
+//	
+//
+// written by Peter Schmidtke, PhD.
+
+
+
+// Parameters_tor returns the torsion parameters when given the atoms.
+// We return a tagged vector suitable for passing to Report_tor which formats
+// the data.
+
+local function Parameters_tor atoms
+    local B = cat apt rep [atoms, aBondCount atoms];
+    local C = cat aBonds atoms;
+
+    [B,C] = [B,C] || [indexof [B,atoms] < indexof [C,atoms]];
+    [B,C] = [B,C] || [aBondCount B > 1 and aBondCount C > 1];
+
+    local A = aBonds B;			// get neighbors
+    local D = aBonds C;
+
+    function pairs [x,y] = tr cat apt tr [x,[y]];
+    [A,D] = tr apt pairs [aBonds B, aBonds C];
+
+    [A,B,C,D] = tr cat apt tr [A,B,C,D];
+    [A,B,C,D] = [A,B,C,D] || [B <> D and A <> C and A <> D];
+
+    local tor = pot_Parm_tor [A,B,C,D];
+//	print tor;
+    local [xA,xB,xC,xD] = apt indexof [[A,B,C,D],[atoms]];
+
+    local mask = (xA and xB and xC and xD);	// atoms outside the set
+    [xA,xB,xC,xD] = [xA,xB,xC,xD] || [mask];
+    tor = tor || [mask];
+
+    local ok = tor(1);
+    local Vn = keep [dropfirst tor, 7];
+    local Pn = keep [tor, -7];
+
+    return [
+	xA: xA, xB: xB, xC: xC, xD:xD,
+	ok: ok, Vn: Vn, Pn: Pn
+    ];
+endfunction
+
+// Parameters_ang returns the angle parameters when given the atoms.  We
+// return a tagged vector suitable for passing to Report_ang which formats
+// the data.
+
+local function Parameters_ang atoms
+    local A = atoms, B = aBonds A, C;
+    [A,B,C] = tr cat app tr cat apt tr [B,A,app nest B];
+    local [xA,xB,xC] = apt indexof [[A,B,C],[atoms]];
+    [A,B,C,xA,xB,xC] = [A,B,C,xA,xB,xC] || [xA and xB and xC and xA < xC];
+
+    local [ok,ang,k2,k3,k4,ub_len,ub_k] = pot_Parm_ang [A,B,C];
+
+    return [
+	xA: xA, xB: xB, xC: xC,
+	ok: ok, ang: mod [ang * (180/PI), 360], k2: k2, k3: k3, k4: k4,
+	ub_len: ub_len, ub_k: ub_k
+    ];
+endfunction
+
+
+// Parameters_str returns the stretch parameters when given the atoms.  We
+// return a tagged vector suitable for passing to Report_str which formats
+// the data.
+
+local function Parameters_str atoms
+    local A = cat apt rep [atoms, aBondCount atoms];
+    local B = cat aBonds atoms;
+    local xA = indexof [A, atoms];
+    local xB = indexof [B, atoms];
+
+    [A,B,xA,xB] = [A,B,xA,xB] || [xA and xB and xA < xB];
+    local [ok,len,k2,k3,k4] = pot_Parm_str [A,B];
+
+    return [
+	xA: xA, xB: xB,
+	ok: ok, len: len, k2: k2, k3: k3, k4: k4
+    ];
+endfunction
+
+// AtomName takes vector of atoms and returns the names for use in the
+// report.  We combine the MM type, the element and the index.
+
+local function strpad [str, n]
+    if length str == n then	return str;
+    elseif length str > n then	return keep [str, n];
+    else			return cat [str, rep[" ", n - length str]];
+    endif
+endfunction
+
+local function AtomName atoms
+    if not length atoms then return []; endif
+
+    local mmtype = aMMType atoms;
+    local el = aElement atoms;
+    local idx = indexof [atoms, Atoms[]];
+
+    local uel = uniq el;
+    local elen = max [1, max tok_length uel];
+    el = (apt strpad [app string uel, elen])[indexof [el, uel]];
+
+    local umm = uniq mmtype;
+    local mmlen = max [1, max tok_length umm];
+    mmtype = (apt strpad [app string umm, mmlen])[indexof [mmtype, umm]];
+
+    local ilen = ceil log10 length idx;
+    local itext = app string app totok idx;
+    local ipad = rep [" ", ilen ];
+
+    local aname = rep ['', length atoms];
+    local i;
+
+    for i = 1, l_length [mmtype, el, idx] loop
+	aname(i) = token cat [
+	    mmtype(i), " (", el(i), keep [ipad, ilen - length itext(i)],
+	    itext(i), ")"
+	];
+    endloop
+
+    return aname;
+endfunction
+
+// ------------------------------ ATOM TYPES ---------------------------------
+
+// Parameters_atom returns the individual atom parameters in a tagged vector.
+
+local function Parameters_atom atoms
+    local el = app token apt swrite ['{}{+}', aElement atoms, aIon atoms];
+    local [ok,vdw_r,vdw_e,vdw_m,vdw_n] = pot_Parm_vdw [atoms,atoms];
+    return [
+	ok:	aMMType atoms <> '??',
+	atoms:	atoms,
+	mmtype:	aMMType atoms,
+	name:	AtomName atoms,
+	name:	aName atoms,
+	el:	aElement atoms,
+	res:	rName oParent atoms,
+	q:	aCharge atoms,
+	mass:	aMass atoms,
+	vdw_r:	0.5 * vdw_r,
+	vdw_e:	vdw_e,
+	vdw_m:	vdw_m,
+	vdw_n:	vdw_n
+    ];
+endfunction
+
+
+
+// =====MASSES=======
+local function writeDefaultMassesToOutput[f];
+	fwrite[f,'BR      79.90          bromine\n'];
+	fwrite[f,'C2      12.01          acetylene C\n'];
+	fwrite[f,'CJ      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CI      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CQ      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CX      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CV      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CR      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CN      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CM      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CK      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CD      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CC      12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'C       12.01          Cyclopropyl carbon sp3\n'];
+	fwrite[f,'CL      35.45          Chlorine covalently bonded\n'];
+	fwrite[f,'CP      12.01          sp2 aromatic C for biphenyl-type (ie non-aromatic) linkage\n'];
+	fwrite[f,'FE      55.00          iron\n'];
+	fwrite[f,'HX       1.008         28 sept 2004 (HX is like HO but avoid electrostatic singularities in ketal and aminal because it has a small Lennard Jones volume)          \n'];
+	fwrite[f,'I      126.9           iodine\n'];
+	fwrite[f,'MG      24.30          magnesium\n'];
+	fwrite[f,'ND      14.01          nitrogen connected to at least one aromatic system\n'];
+	fwrite[f,'NJ      14.01          nitrogen in a three-membered ring\n'];
+	fwrite[f,'NL      14.01          nitrile nitrogen\n'];
+	fwrite[f,'OP      16.00          Oxygen in hydronium ion H3O+; bond to HX\n'];
+	fwrite[f,'SD      32.06          Double bonded non-hypervalent sulfur \n'];
+	fwrite[f,'SO      32.06          hypervalent sulfur\n'];
+	fwrite[f,'ZN      65.39          zinc\n'];
+	fflush f;
+endfunction
+
+
+// Helper functions formatting everything for accepted frcmod output
+
+local function writeMassesToOutput [name,mass,f];
+
+	fwrite [f,'{-2}\t{f.3}\t{}\n',toupper name,real mass,'Exported from MOE'];
+	fflush f;
+endfunction
+
+local function writeBondStretchToOutput [xA,xB,ok,len,k2,f];
+	if ok then
+		fwrite [f,'{-2}-{-2}\t{f.3}\t{f.3}\t{}\n',toupper xA,toupper xB,k2,len,"Exported from MOE"];
+	else 
+		fwrite [f,'{-2}-{-2}\t{f.3}\t{f.3}\t{}\n',toupper xA,toupper xB,k2,len,"WARNING: Guessed by MOE"];
+	endif
+	fflush f;
+endfunction
+
+local function writeAngleBendToOutput [xA,xB,xC,ok,ang,k2,f];
+	if ok then
+		fwrite [f,'{-2} -{-2} -{-2}\t{f.3}\t{f.3}\t{}\n',toupper xA,toupper xB,toupper xC,k2,ang,"Export from MOE"];
+	else 
+		fwrite [f,'{-2} -{-2} -{-2}\t{f.3}\t{f.3}\t{}\n',toupper xA,toupper xB,toupper xC,k2,ang,"WARNING: Guessed by MOE"];
+	endif
+	fflush f;
+endfunction
+
+local function printIt[v1,v2];
+	print tok_cat[[v1,v2]];
+endfunction
+
+
+
+local function writeDihedralsToOutput [xA,xB,xC,xD,vn,pn,ok,f];
+	//here we translate moe formatted torsion angle information to frcmod formatted info
+	//	The frcmod file format is defined as 
+	//Atom1-Atom2-Atom3-Atom4	DIVFact		V		Phase	Period	Comment
+	//CW-S -NB-CR     			1 			0.000	0.000	1 		guess
+	//to translate the MOE ff info to this format, DIVFact is always 1. Next if only one angle is defined in the 
+	//Fourier series of max 6 angles, than V and the phase angle for this angle are written and the period
+	//corresponds to the position of the angle in the MOE list of angles (not including the first element).
+	//If several angles are defined in the Fourier series; moe defines several potentials. Thus all angles prior 
+	//to the last angle in the series have to be written to the frcmod prefixing the period with a negative sign.
+	//The last angle is written as positive. The way of numbering is always from 6 to 1. 
+	//For example if the moe potential vn contains a non-zero value at position 2 and 4, then the corresponding 
+	//frcmod periods should be written as
+	//CW-S -NB-CR     			1 			0.100	0.000	-4 		example
+	//CW-S -NB-CR     			1 			0.200	0.000	2 		example
+	
+
+	local vnSub=vn[igen 6 +1];
+	local pnSub=pn[igen 6 +1];
+	local mVnSub=vnSub>0.0;
+	local check=add vnSub;
+	local n_ids=add (vnSub>0.0);
+
+	if check>0.0 then
+		local ids= x_pack mVnSub;
+		local comment;
+		if ok then
+			comment="Exported from MOE";
+		else 
+			comment="WARNING: guessed by MOE";
+		endif
+		if n_ids==1 then	
+			fwrite [f,'{-2}-{-2}-{-2}-{-2}\t{}\t{f.3}\t{f.3}\t{}\t{}\n',toupper xA,toupper xB,toupper xC,toupper xD,1,vnSub[ids],pnSub[ids],ids,comment];
+			
+			fflush f;
+		elseif n_ids>1 then
+			local i;	
+
+			for i=n_ids,1,-1 loop
+				if i>1 then
+					fwrite [f,'{-2}-{-2}-{-2}-{-2}\t{}\t{f.3}\t{f.3}\t{}\t{}\n',toupper xA,toupper xB,toupper xC,toupper xD,1,vnSub[ids[i]],pnSub[ids[i]],-ids[i],comment];
+				else 
+					fwrite [f,'{-2}-{-2}-{-2}-{-2}\t{}\t{f.3}\t{f.3}\t{}\t{}\n',toupper xA,toupper xB,toupper xC,toupper xD,1,vnSub[ids[i]],pnSub[ids[i]],ids[i],comment];
+				endif
+			endloop
+		endif
+	else 
+		fwrite [f,'{-2}-{-2}-{-2}-{-2}\t{}\t{f.3}\t{f.3}\t{}\t{}\n',toupper xA,toupper xB,toupper xC,toupper xD,1,0.0,0.0,1,comment];
+	
+	endif
+endfunction
+
+
+// ==== write Improper angles ======
+local function writeImpropers [f];
+	fwrite[f,'X -C*-C*-X     1.100   180.000    2   5-memb Ar db\n'];
+	fwrite[f,'X -CP-C*-X     1.100   180.000    2   5-memb Ar db\n'];
+	fwrite[f,'X -CP-C*-X     1.100   180.000    2   5-memb Ar db\n'];
+	fwrite[f,'X -S -C*-X     1.100   180.000    2   thiophene\n'];
+	fwrite[f,'X -X -C -NB   10.500   180.000    2   imide from ff94 X-X-C-O\n'];
+	fwrite[f,'X -X -CA-CL    1.100   180.000    2   ff94 X-X-CA-HA\n'];
+	fwrite[f,'X -X -CA-F     1.100   180.000    2   Ar-F;ff94 X-X-CA-HA\n'];
+	fwrite[f,'X -X -CA-OS    1.100   180.000    2   ff94 X-X-CA-HA\n'];
+	fwrite[f,'X -CB-CB-X     1.100   180.000    2   indole bridgehead\n'];
+	fwrite[f,'X -X -CC-X     1.100   180.000    2   guess generic 5cyc\n'];
+	fwrite[f,'X -X -CM-CA    1.100   180.000    2   planar db\n'];
+	fwrite[f,'X -X -CM-CM    1.100   180.000    2   planar db\n'];
+	fwrite[f,'X -X -CM-CT    1.100   180.000    2   planar db\n'];
+	fwrite[f,'X -X -CP-X     1.100   180.000    2   planar ar\n'];
+	fwrite[f,'X -X -CR-X     1.100   180.000    2   guess generic 5cyc\n'];
+	fwrite[f,'X -X -CW-X     1.100   180.000    2   guess generic 5cyc\n'];
+	fwrite[f,'X -X -N*-X     1.100   180.000    2   guess generic 5cyc\n'];
+	fwrite[f,'X -X -NA-X     1.100   180.000    2   guess generic 5cyc\n'];
+	fwrite[f,'CA-CA-CA-CA    1.100   180.000    2   naph;ff94 X-X-CA-HA\n'];
+	fwrite[f,'CA-CA-CA-CP    1.100   180.000    2   naph;ff94 X-X-CA-HA\n'];
+	fwrite[f,'CA-CA-CA-NC    1.100   180.000    2   quin;ff94 X-X-CA-HA\n'];
+	fwrite[f,'CP-CP-CA-CA    1.100   180.000    2   Ph-Ph;ff94 CA-CA-C-OH\n'];
+	fwrite[f,'CA-CR-CC-CW   10.500   180.000    2   guess Feb3/2000\n'];
+	fwrite[f,'NB-CR-CC-CT   10.500   180.000    2   guess Feb3/2000\n'];
+	fwrite[f,'CT-N*-CR-NB   10.500   180.000    2   guess Feb10/2000\n'];
+	fwrite[f,'S -NB-CR-S    10.500   180.000    2   guess  Nov 4 2003 to keep a benzothiophene planar with the sulfur substituant.\n'];
+	fwrite[f,'CA-NB-N*-CR   10.500   180.000    2   guess Feb11/2000\n'];
+	fwrite[f,'CT-NB-N*-CR   10.500   180.000    2   guess Feb18/2000\n'];
+	fwrite[f,'NB-NB-N*-NB    1.000   180.000    2   \n'];
+endfunction
+
+
+// ==== write non bonded parameters ======
+local function writeNonBonded[f];
+	fwrite[f,'  BR          2.05    0.35            Bondi extrap from CL (Sep2000)\n'];
+	fwrite[f,'  C2          1.9080  0.0860          From aromatic carbons CA,C,CM\n'];
+  	fwrite[f,'  CJ          1.9080  0.1094          set to CT values\n'];
+  	fwrite[f,'  CX          1.9080  0.1094          set to CT values\n'];
+ 	fwrite[f,'  CI          1.9080  0.1094          set to CT values\n'];
+	fwrite[f,'  CL          1.948   0.265           Covalent Cl (J.P.C B,v102,p8070(1998)\n'];
+  	fwrite[f,'  CP          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CQ          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CV          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CR          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CN          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CM          1.9080  0.0860          ff94 CA\n'];  	
+  	fwrite[f,'  CK          1.9080  0.0860          ff94 CA\n'];  	
+  	fwrite[f,'  CD          1.9080  0.0860          ff94 CA\n'];
+  	fwrite[f,'  CC          1.9080  0.0860          ff94 CA\n'];  	
+  	fwrite[f,'  C           1.9080  0.0860          ff94 CA\n'];
+	fwrite[f,'  I           2.18    0.4             Bondi extrap from CL (Sep2000)\n'];
+	fwrite[f,'  ND          1.824    0.17           Taken from parm94.dat\n'];
+	fwrite[f,'  NJ          1.824    0.17           Taken from parm94.dat\n'];
+	fwrite[f,'  NL          1.824    0.17           Taken from parm94.dat\n'];
+	fwrite[f,'  OP          1.7682  0.1521          H3O+ taken from TIP3P water model\n'];
+	fwrite[f,'  SD          2.0000  0.2500          by analogy with S and SH\n'];
+	fwrite[f,'  SO          2.0000  0.2500          by analogy with S and SH\n'];
+	fwrite[f,'  FE          0.8     0.0003          Rough fit  April2003\n'];
+	fwrite[f,'  ZN          1.10    0.0125          From Parm99 : Zn2+, Merz,PAK, JACS,113,8262,(1991); added by  26 Feb 2006\n'];
+	fwrite[f,'  MG          0.7926  0.8947          From Parm99 : Mg2+ Aqvist JPC 1990,94,8021: added by  26 Feb 2006\n'];
+	fwrite[f,'  HX          0.6000  0.0157          Same param than H.  Sep 28 2004.  (HX is like HO but avoid electrostatic singularities in ketal and aminal because it has a small Lennard Jones volume)\n'];
+endfunction
+
+
+// public function allowing to export to frcmod file ======
+
+global function export2FRCMod [fileName,atoms]
+	//public function for other scripts wanting to save prm@frosst parameters
+	
+    local f = fopenw fileName;
+    local atom_info = Parameters_atom atoms;
+		fwrite[f,'FF Export from MOE\n'];
+		fwrite[f,'\nMASS\n'];
+		fflush f;
+		
+		//get unique atom types and corresponding masses
+
+		local uniqAtomTypes=atom_info.mmtype | m_uniq atom_info.mmtype;
+		local uniqMasses=atom_info.mass | m_uniq atom_info.mmtype;
+		writeDefaultMassesToOutput[f];
+		apt writeMassesToOutput [uniqAtomTypes,uniqMasses,f];
+
+			
+		//now getting bonding information length and k2 parameters are needed for frcmod
+		
+		fwrite[f,'\nBOND\n'];
+		fflush f;
+		local bondStretch= Parameters_str atoms;
+		local atomTypes=atom_info.mmtype;
+
+		apt writeBondStretchToOutput [atomTypes[bondStretch.xA],atomTypes[bondStretch.xB],bondStretch.ok,bondStretch.len,bondStretch.k2,f];
+
+
+		// now getting angle information
+		
+		fwrite[f,'\nANGLE\n'];
+		fflush f;
+		local angleBend=Parameters_ang atoms;
+		
+		apt writeAngleBendToOutput [atomTypes[angleBend.xA],atomTypes[angleBend.xB],atomTypes[angleBend.xC],angleBend.ok,angleBend.ang,angleBend.k2,f];
+		
+		
+		//now getting dihedrals 
+		
+		fwrite[f,'\nDIHEDRAL\n'];
+		fflush f;
+		local dihedrals=Parameters_tor atoms;
+
+		apt writeDihedralsToOutput [atomTypes[dihedrals.xA],atomTypes[dihedrals.xB],atomTypes[dihedrals.xC],atomTypes[dihedrals.xD],tr dihedrals.Vn,tr dihedrals.Pn,dihedrals.ok,f];
+
+		//now writing the default set of improper angles
+		fwrite[f,'\nIMPROPERS\n'];
+		fflush f;
+		writeImpropers [f];
+		
+		//write non bonded
+		fwrite[f,'\nNONBONDED\n'];
+		fflush[f];
+		writeNonBonded[f];
+        fclose f ;
+		print cat['Done writing frcmod file to ',fileName];
+    fclose f;
+endfunction
+
+
+#eof
+

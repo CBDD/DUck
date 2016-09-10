@@ -1,0 +1,848 @@
+#svl
+//	duck.svl : GUI for setting up a dynamic undocking calculation
+//
+//	
+// COPYRIGHT (C) 1996-2016 CHEMICAL COMPUTING GROUP INC.  ALL RIGHTS RESERVED.
+//
+// PERMISSION TO USE, COPY, MODIFY AND DISTRIBUTE THIS SOFTWARE IS HEREBY
+// GRANTED PROVIDED THAT: (1) UNMODIFIED OR FUNCTIONALLY EQUIVALENT CODE
+// DERIVED FROM THIS SOFTWARE MUST CONTAIN THIS NOTICE; (2) ALL CODE DERIVED
+// FROM THIS SOFTWARE MUST ACKNOWLEDGE THE AUTHOR(S) AND INSTITUTION(S); (3)
+// THE NAMES OF THE AUTHOR(S) AND INSTITUTION(S) NOT BE USED IN ADVERTISING
+// OR PUBLICITY PERTAINING TO THE DISTRIBUTION OF THE SOFTWARE WITHOUT
+// SPECIFIC, WRITTEN PRIOR PERMISSION; (4) ALL CODE DERIVED FROM THIS SOFTWARE
+// BE EXECUTED WITH THE MOLECULAR OPERATING ENVIRONMENT (MOE) LICENSED FROM
+// CHEMICAL COMPUTING GROUP INC.
+//
+// CHEMICAL COMPUTING GROUP INC. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+// SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+// AND IN NO EVENT SHALL CHEMICAL COMPUTING GROUP INC. BE LIABLE FOR ANY
+// SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+// RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+// CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+#set title	'Dynamic UndoCKing'
+#set class	'MOE:simulation'
+#set version	'2016.09'
+
+#set main	'DuckPanel' 
+
+
+const CLI = 0;
+
+const WINDOW_NAME = 'DynamicUndocking';
+
+global JPATH;
+global FFPATH;
+
+
+function _Atoms;
+function fwrite_MOE;
+function fwrite_AmberMOL2;
+function export2FRCMod;
+function writeAmberInputs;
+function launchAmber;
+//SRC MINO
+function writeAmberLaunchScripts;
+function launchAmber_MINO;
+function writeAmberLaunchScripts_MINO;
+function my_fwrite_PDB;
+function MM;
+function PartialCharge;
+function ph4_aDonor, ph4_aAcceptor;
+
+
+// estimate the memory needed for the calculation
+
+// returns all the atoms from set a that are within 'dist' angstrom from b
+local function atoms_within[ a, b, dist ]
+    if (length b) == 0 or (length a) == 0 then
+	return [];
+    endif
+    local pkey = prox_open [ dist, aPos b, dist ];
+    local [seg,idx,sqr_dist] = prox_find[ pkey, aPos a, 0.0 ];
+    prox_close pkey;
+    local aidx =  x_pack seg;
+    return a[aidx];
+endfunction
+
+
+
+
+
+// stolen from prolib.svl
+local function replace_string [s, pos, replacement]
+    local s1, s2;
+    s1 = keep [s, (first pos) -1];
+    s2 = keep [s, -(length s - (last pos))];
+    return cat [s1, replacement, s2];
+endfunction
+
+// stolen from prolib.svl
+local function inside_bracket [s,p]
+    local bc = strpos ["]", drop [s, p]];
+    if bc > 0 then bc = bc + p; endif
+    local bo = strpos ["[", drop [s, p]];
+    if bo > 0 then bo = bo + p; endif
+    local c;
+    if bo == 0 and bc <> 0 then
+	c = 1;
+    elseif bc == 0 and bo <> 0 then
+	c = 1;
+    else
+	c = select [1,0, bc < bo];
+    endif
+    return c and not (s(p) == "[" or s(p) == "]");
+endfunction
+
+// stolen from prolib.svl
+local function search_and_replace_all [s, word, replacement, opt]
+    opt = cat [opt, [add_brackets:0]];
+    local p, rplmnt;
+    if word === "" then return s; endif
+    while p = strpos [word, s] loop
+	if opt.add_brackets === 1 then
+	   if not inside_bracket [s, p] then
+		rplmnt = cat ["[", replacement, "]"];
+	   else
+		rplmnt = replacement;
+	   endif
+	endif
+	s = replace_string [s, [p, p + length word - 1 ], rplmnt];
+    endloop
+    return s;
+endfunction
+
+
+local function MyBrowseFile [wkey, trig, targets]
+    const DEF_OPT = [ title: 'Select File', mode: 'none', filter: '' ];
+    local wname = token drop [string trig, length "browse_"];
+    if m_diff [wname, tags targets] then return 0; endif
+
+	// Parent task: create a child task and return immediately
+	// the task id of the child.
+
+    local [taskid, taskcode] = task_fork [master:'parent', errmsg:'ignore'];
+    if taskcode <> 'child' then return taskid; endif
+
+	// Child task: does not return, only exits.
+	// If there is a filename, we update the textfield "wname" in wkey.
+
+    local opt = cat [targets.(wname), DEF_OPT];
+    local fn = FilePrompt [opt.title, opt.mode, opt.filter];
+
+    if length fn then WindowSetData [wkey, tag [wname, fn]]; endif
+    exit[];
+endfunction
+
+
+local function makeMDDirs[]
+	local fileList=fbase ftail flist [];
+	if indexof['lib',fileList]==0 then
+		fmkdir 'lib';
+	endif
+endfunction
+
+local function writeDoLeap[ligand,dirName,options,suppFFParams,lenRec,solvation]
+	local fh;
+	if(solvation==1) then
+	    fh=fopenw twrite['{}/do.leap',dirName];	//open file handle
+	else
+	    fh=fopenw twrite['{}/doleaped.leap',dirName];	//open file handle
+	endif
+	print options.ffParams;
+	fwrite [fh,'source oldFF/leaprc.ff99SBildn\n'];
+	fwrite [fh,'loadOff ions94.lib\n'];
+
+	if length options.ffParams[1]>0 then
+		local el;
+		local mkeyList=[];
+		local mkey;
+		local paramFileName;
+		for el in cat options.ffParams[1] loop
+			mkeyList=cat [mkeyList,Message[0,twrite['Adding additional parameters to leap file: {}',el]]];
+			paramFileName=(cat suppFFParams) | rotr (cat suppFFParams)==el;
+			fwrite [fh,'loadOff {}/{}.lib\n',FFPATH,paramFileName];
+			fwrite [fh,'loadAmberPrep {}/{}.prp\n',FFPATH,paramFileName];
+		endloop
+		sleep 2;
+		for mkey in mkeyList loop
+			Message[mkey,''];
+		endloop
+	endif
+
+	if length ligand>0 then
+//		local resNames=uniq rName oResidues ligand;
+		local res;
+		for res in uniq oResidues ligand loop
+			local ligName=rName res;
+			print cat['Identified Residue ',ligName,' as ligand'];
+			fwrite [fh,'loadAmberParams {}.frcmod\n',ligName];
+			fwrite [fh,'{}=loadMol2 {}_ok.mol2\n',ligName,ligName];
+		endloop
+		fwrite [fh,'receptor=loadPdb system.pdb\n'];
+		fwrite [fh,'system=combine \{{receptor'];
+
+		for res in uniq oResidues ligand loop
+			fwrite [fh,' {}',rName res];
+		endloop
+		fwrite [fh,'\}\n'];
+	else 
+		fwrite [fh,'system=loadPdb system.pdb\n'];
+	endif
+	if(solvation==1) then
+	  fwrite [fh,'addIons system Cl- 0\n'];
+	  fwrite [fh,'addIons system Na+ 0\n'];
+	  fwrite [fh,'solvateBox system TIP3PBOX 18.0 0.65\n'];
+	  fwrite [fh,'saveAmberParm system system_solv.prmtop system_solv.prmcrd\n'];
+	  fwrite [fh,'savePdb system system_solv.pdb\n'];
+	else
+	  fwrite [fh,'savePdb system system_leaped.pdb\n'];
+	  
+	endif
+	fwrite [fh,'quit'];
+
+	
+	fclose fh;	//close file handle
+	
+endfunction
+
+
+local function writeSystemPdb[receptor,fName]
+	local pdb_options = [
+	    use_chain_id    : 1,
+	    force_TER	    : 1
+	];
+	pdb_options.hnames = 'PDB v3.0';
+	pdb_options.amber = 1;
+
+	my_fwrite_PDB [fName,receptor,pdb_options];
+endfunction
+
+local function writeLigand[ligand,dirName]
+	if length ligand == 0 then
+		return [];
+	endif
+	local count=0;
+	local res= uniq oResidues ligand;
+	local curRes;
+	for curRes in res loop
+		print "writing";
+		local resName=rName curRes;
+		
+
+		local selection=cat oAtoms curRes;
+		print resName;
+		print length selection;
+		export2FRCMod[tok_cat[dirName,resName,'.frcmod'],selection];
+		fwrite_AmberMOL2[tok_cat[dirName,resName,'_ok.mol2'], selection, []];
+	endloop
+	//local resName=first rName oResidues ligand;
+	
+endfunction
+
+local function executeLeap [path,leapfile]
+	local currentDir= cd '.';
+	cd path;
+	local pid=exe_open [twrite['tleap -f {}',leapfile]];
+	local fout=exe_stdout pid;
+	local ferr=exe_stdout pid;
+	local tleap_msg_key = Message [0, 'Running Tleap to create the system'];
+	loop
+		sleep 1;
+	until exe_status pid ==0
+	endloop
+	exe_close pid;
+	Message[tleap_msg_key,[]];
+	
+	local msgKey=Message [0,'Tleap finished running.'];
+	
+	
+	
+	
+	cd currentDir;
+	
+	return msgKey;
+	
+endfunction
+
+
+
+//local function DEPR_selectAtomsFromReceptorAndLigandDB[selAtomPosition, options]
+//	local a=Atoms[];
+	
+// Select the reference atom from coordinates
+//loop over all selected atoms if multiple atoms selected
+// 	for curPos in selAtomPositions loop
+//	    aSetSelected[a[x_min app add tr abs(curPos-aPos Atoms[])],1];
+//  	endloop
+//	aSetSelected[a[x_min app add tr abs(selAtomPosition-aPos Atoms[])],1];
+// XB - ini
+//	changed this expression for a simpler one (not sure what this $$ligand thing is...)
+//	local ligand_atoms=_Atoms '$$ligand' | (rName aResidue _Atoms '$$ligand' == 'LIG');
+// PS - comment, this is some stuff that can be useful in some cases but not for this application here.
+
+// 	sqrt(add(pow [(oCenterOfMass s2 - oCenterOfMass s1),2 ]))
+
+// 	local ligand_atoms = a | rName aResidue a == 'LIG';
+//	keep only the complementary atoms of the ligand
+  // 	local asubset;
+  // 	if isdonor==1 then
+  // 		 asubset = ligand_atoms | ph4_aAcceptor ligand_atoms;
+  // 	else
+  // 		 asubset = ligand_atoms | ph4_aDonor ligand_atoms;
+  // 	endif
+  // 	if length asubset < 1 then
+  // 		print 'This ligand does not have any atom of the right type.';
+  // 	endif
+  // 	aSetSelected[asubset[x_min aDist [SelectedAtoms[],asubset]],1];
+  // 	if add aSelected a <> 2 then
+  // 		print 'Number of selected atoms different than 2. Something went wrong. Must end here.';
+  // 		exit[];
+  // 	endif
+  // 	
+  // // PS not used anymore
+  // //	local dist = aDist [first SelectedAtoms[], second SelectedAtoms[]];
+  // //	if dist > 3.2 then
+  // //		print 'Selected atoms are not within H-bond distance. Must end here.';
+  // //		exit [];
+  // //	endif
+  // // XB - end
+  // 
+  // 	
+  // endfunction
+
+function startMD;
+
+local function startDB[options,suppFFParams]
+	pot_Load '$MOE/lib/pfrosst.ff';
+
+
+	local currentDir=cd '.';
+	
+	local selAtomPosition=aPos SelectedAtoms[];
+	local tmpName='tmp_receptor.moe';
+	SaveAs tmpName;
+	
+	Close[force:1];
+	
+	
+	
+	print 'Opening ligand MDB file';
+	if ftype options.ligand_db<>'file' then 
+		print 'Opening ligand database not possible. Please check that your path is correctly pointing to a valid mdb file.';
+		return;
+	endif
+	local mdb=db_Open options.ligand_db;
+	local entries=db_Entries mdb;
+
+	local molfield='mol';
+	local [fields, types] = db_Fields mdb;
+	local molfieldtype = types | (fields == molfield);
+	if molfieldtype<>'molecule' then 
+		write ['Warning, field named {} does not exist.',molfield];
+		molfield=db_FirstFieldType[mdb,'molecule'];
+		write [' Using field named {} instead.',molfield];
+	endif
+
+	local entry;
+	//loop over all entries to get the ligand molecule
+	local molCount=1;
+//SRC MINO queue in
+	//writeAmberLaunchScripts options;
+	print options.queue_IN;
+	if options.queue_IN === 'Minotauro' then
+		writeAmberLaunchScripts_MINO options;
+	endif
+	if options.queue_IN === 'Marc' then 
+		writeAmberLaunchScripts options;
+	endif
+//SRC MINO queue end
+	for entry in entries loop
+		Open tmpName;
+		local msgKey=Message[0,tok_cat['Currently treating molecule ',totok molCount]];
+		local protein=cat oAtoms Chains[];
+
+		local ligand=mol_Create first db_ReadFields [mdb,entry,molfield];
+
+//		local ligandName=first first ligand;
+
+// get rid of minimization
+//		if options.tethered_min_DB==1 then
+//			//set thether only on protein atoms
+//			print 'setting tethers to ligand and receptor';
+//			local heavyProteinAtoms=protein | ((aAtomicNumber protein)<>1);
+//			aSetTether[heavyProteinAtoms, aPos heavyProteinAtoms,10,0,0.25];
+//			local heavyLigandAtoms=cat oAtoms ligand | ((aAtomicNumber cat oAtoms ligand)<>1);
+//			aSetTether[heavyLigandAtoms, aPos heavyLigandAtoms,1,0,0.25];
+//			print 'starting minimisation';
+//			MM[pot_charge:1];
+//		endif
+		
+		//rename residues systematically to LIG
+		local ligResidues=uniq cat aResidue oAtoms ligand;
+		local el;
+
+		for el in ligResidues loop
+			rSetName[el,'LIG'];
+			local ligAtoms=cat oAtoms el;
+
+			
+			local [q, pos] = PartialCharge [ligAtoms, 'AM1-BCC'];
+			aSetCharge [ligAtoms,q];
+		endloop
+		
+		local fileList=fbase ftail flist '.';
+		//create folder name for writing simulation parameters
+		local ligandDirName=tok_cat['LIG_target_',totok molCount];
+		
+		if indexof[ligandDirName,fileList]==0 then
+			fmkdir ligandDirName;
+		endif
+		
+		cd ligandDirName;
+		local receptorSelection=[];
+		local a=Atoms[];
+		local curPos;
+
+		for curPos in (tr selAtomPosition) loop
+		    print curPos-aPos Atoms[];
+		    receptorSelection=cat [receptorSelection,a[x_min app add tr abs(curPos-aPos Atoms[])]]; //instead of selecting add it to a set
+		endloop
+		
+		local ligandSelection=[];
+		local receptorCOM=oCenterOfMass receptorSelection;	//calculate center of mass of receptor selection
+		
+		local ligand_atoms = a | rName aResidue a == 'LIG';
+		ligand_atoms=ligand_atoms | aAtomicNumber ligand_atoms <> 1;	//get only heavy atoms
+
+		local distances=cat sqrt add pow[tr(tr aPos ligand_atoms - [receptorCOM]),2];
+		// by default now use closest atom on ligand
+		ligandSelection=ligand_atoms[x_min distances];
+
+
+		// uncomment this if you want to reintroduce the environment options from the moe window
+
+		//if options.environment=='Closest Atom on Ligand' then
+		//    ligandSelection=ligand_atoms[x_min distances];
+		//else 
+		//    ligandSelection=ligand_atoms | distances<=options.smd_cutoff;
+		    
+		//endif
+
+		
+		//selectAtomsFromReceptorAndLigandDB[selAtomPosition,isdonor];	//TODO check this
+		startMD[cat oAtoms ligand,options,suppFFParams,ligandSelection,receptorSelection]; // TODO CONTINUE
+		cd '../';
+		
+		
+		molCount=molCount+1;
+		Close[force:1];
+		Message[msgKey,[]];	
+		
+	endloop
+	db_Close mdb;
+endfunction
+
+local function getSelectedAtomIdsFromPDB[path,atomSelection]
+	local maxANumber = max aNumber Atoms[];
+	local newChains = ReadAuto [ path, [center:0,select:0], 'pdb' ];
+	local newAtoms=cat oAtoms newChains;
+	local curAtom;
+	local aIndices; 
+	local distances;
+	local newAtomSelection;
+	for curAtom in atomSelection loop
+	    distances=aDist [newAtoms,curAtom];
+	    newAtomSelection=cat[newAtomSelection,newAtoms[x_min cat distances]];
+	
+	endloop;
+	newAtomSelection=uniq newAtomSelection; 
+// 	local selAtom1=first SelectedAtoms[];
+// 	local selAtom2=second SelectedAtoms[];
+// 
+// 	local diff1=aDist [selAtom1,newAtoms];
+// 	local diff2=aDist [selAtom2,newAtoms];
+// 	
+// 	local firstIndex=aNumber newAtoms[x_pack(diff1<0.01)];
+// 	local secondIndex=aNumber newAtoms[x_pack(diff2<0.01)];
+// 	print firstIndex;
+// 	print secondIndex;
+// 	print aIndices;
+	local ligand_selection=newAtomSelection | rName aResidue newAtomSelection == 'LIG';
+	local receptor_selection=newAtomSelection | rName aResidue newAtomSelection <> 'LIG';
+
+	local ligand_com=oCenterOfMass ligand_selection;
+	local receptor_com = oCenterOfMass receptor_selection;
+	
+	local comdist=sqrt add pow [ligand_com-receptor_com,2];
+	local ligand_aNumbers=aNumber ligand_selection;
+	local receptor_aNumbers=aNumber receptor_selection;
+ 	oDestroy newChains;
+	return([ligand_aNumbers-maxANumber,receptor_aNumbers-maxANumber,comdist]);
+endfunction
+
+
+
+local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelection]
+	print 'Using Prm@frosst forcefield';
+	pot_Load '$MOE/lib/pfrosst.ff';
+	local currentDir=cd '.';
+	print cat ['Creating folders in ',currentDir];
+	makeMDDirs[];
+	local allAtoms=Atoms[];
+	local receptor=[];
+
+	local ligandAtomNames=aName ligand;
+	aSetName [ligand, aMMType ligand];	//overwrite ligand names with MMtype names for mol2 export
+	receptor=diff[allAtoms,ligand];	//from all atoms filter out the ligand atoms to retain only resting atoms
+	//treat ligand and receptor
+	print cat['Selected ',length ligand, ' ligand atoms'];
+
+	print cat['Selected ',length receptor, ' receptor atoms'];	
+	writeSystemPdb [receptor,'lib/system.pdb'];
+	writeLigand[ligand,'lib/'];
+	if length ligand>0 then
+		aSetName [ligand, ligandAtomNames];	//rewrite original atom names back to atoms
+	endif
+	writeDoLeap[ligand,'lib',options,suppFFParams,length receptor,1];
+	writeDoLeap[ligand,'lib',options,suppFFParams,length receptor,0];
+	local msgKey=executeLeap['lib','do.leap'];
+	
+	
+	//check if successful
+	if fsize 'lib/system_solv.prmtop'== 0 then
+		Message[msgKey,[]];
+		msgKey=Message[0, 'Error, tleap did not manage to build the system'];
+		print 'Error, tleap did not manage to build the system';
+		sleep 5;
+
+		return [];
+	endif
+	Message[msgKey,[]];
+
+	//rerun tleap to get proper prmtop atom numberings
+
+	msgKey=executeLeap['lib','doleaped.leap'];
+	local selectedAtomIds=getSelectedAtomIdsFromPDB['lib/system_leaped.pdb',cat [ligandSelection,receptorSelection]];
+	Message[msgKey,[]];
+	local lenRec = length uniq aResidue Atoms receptor;
+// 	local selAtomsPositions=tr aPos SelectedAtoms[];
+// 	local distSelected= aDist[first SelectedAtoms[], second SelectedAtoms[]];
+	local ret=writeAmberInputs['',options,ligand,lenRec,selectedAtomIds];
+	if ret==0 then
+		launchAmber[options];
+	else
+		sleep 3;
+		Message[ret,''];
+	endif
+
+
+//SRC MINO or Marc queues
+	if options.queue_IN === 'Minotauro' then
+		if ret==0 then
+			launchAmber_MINO[options];
+		else
+			sleep 3;
+			Message[ret,''];
+		endif
+	endif
+	if options.queue_IN === 'Marc' then 
+		if ret==0 then
+			launchAmber[options];
+		else
+			sleep 3;
+			Message[ret,''];
+		endif
+	endif
+//SRC MINO or Marc queues end
+endfunction
+
+
+local function loadSuppFFParams[]
+	local fh=fopenr[twrite['{}/register.txt',FFPATH]];
+	local tmpText;
+	tmpText=fread[fh,'{G w=`\t` r=`\n`}{t:}{t:}'];
+	local titles=[];
+	if tmpText[2]>0 then
+		titles=cat [tmpText[1][1]];
+	endif
+	while tmpText[2]>0 loop
+		tmpText=fread[fh,'{G w=`\t` r=`\n`}{t:}{t:}'];		
+		if tmpText[2]>0 then
+			titles=cat [titles,tmpText[1][1]];
+		endif
+	endloop
+	fclose fh;
+	return titles;
+endfunction
+
+
+global function DuckPanel opt
+    
+    JPATH = getenv 'MOE_SVL_LOAD';
+    FFPATH = tok_cat [ JPATH , '/tleap'];
+    if MOE_BATCH then return[]; endif
+    if second task_fork[] <> 'child' then return; endif
+    task_settitle[-1,'Duck Configuration'];
+    //if WindowShow [WINDOW_NAME,1] then return; endif
+
+	// create the main panel
+
+	local suppFFParams=loadSuppFFParams[];
+
+	
+
+    const PANEL_TEXT_RUN  = [ 'Run' , 'Close'];
+    const PANEL_TEXT_STOP = [ 'Stop', 'Close'];
+    const PANEL_INSENSITIVE = [0,1];
+    const PANEL_SENSITIVE   = [1,1];
+    const RUN_IDX = 1;
+    const CLOSE_IDX = 2;
+    local atoms,receptor,ligand;
+
+    
+    local wkey = WindowCreate [
+	title		: 'Dynamic Undocking',
+	windowName	: WINDOW_NAME,
+//	name		: 'prompt',	//panel
+	name		: 'panel',
+	text		: PANEL_TEXT_RUN,
+	sensitive	: PANEL_SENSITIVE,
+	
+	Pager : [
+	    name	: 'systemdescpage',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    Label	: [ text:
+		'Dialog allowing to create Duck input files and topologies of\n'
+		'the system using AmberFF and Merck Parm@Frosst parameters'
+	    ]
+	],
+	Pager : [
+	    name	: 'systemFFparamspage',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+	    Listbox : [
+		    		name : 'ffParams',
+		    		title: 'Load additional params',
+		    		text: cat (untag suppFFParams)[1],
+	    			multiSelect: 1,
+	    			header: '',
+	    			len: 3,
+	    			width : 30,
+	    			bubbleHelp: 'If you need special parameters, check the corresponding item in the list\n'
+								'If no such an item is available, add the lib and prp file to \n'
+	    						'$(MOE_SVL_LOAD)/FF/tleap'
+		    	]
+    ], // Pager
+//SRC - box start
+	Pager : [
+	    name	: 'queueSEL',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+	    Vbox: [
+		    extendH: 1,
+		    flushLeft	: 1,
+	    	Label	: [ text:
+			'Choose between queue input for "Marc" or for "Minotauro".\n',
+			flushLeft	: 1
+	    	
+	    	
+		   	],
+		    Hbox: [
+		    	extendH: 1,
+		    	Radio :[
+		    		name : 'queue_IN',
+		    		title : 'Choose where to run the MD jobs:',
+				text:['Marc', 'Minotauro'],
+		    		bubbleHelp:'Choose where to run the MD jobs.\n'
+		    	]
+		   ]
+	    ]
+	],
+//SRC box end
+	Pager : [
+	    name	: 'systemMDparams',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+		Vbox: [
+		    extendH: 1,
+		    flushLeft	: 1,
+	    		Label	: [ text:
+			'Modify SMD specific parameters here.\n',
+			flushLeft	: 1
+		   	],
+	    		Hbox: [
+	    		extendH: 1,
+	    		name : 'md_params_box',
+		   		Text : [
+		   			name : 'smd_length',
+		   			len : 5,
+					title: 'SMD length (ps) :',
+					emptyText: '500',
+					allowBlank: 0,
+					type:'int',
+					bubbleHelp:
+		    		'The length in ns of the SMD simulation\n'],
+		   		Text : [
+		   			name : 'smd_displ',
+		   			len : 5,
+					title: 'SMD displacement (A) :',
+					emptyText: '3',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'The amount of displacement during SMD\n']
+
+			],
+			Hbox: [
+	    		extendH: 1,
+	    		name : 'md_params_box',
+				Text : [
+		   			name : 'smd_fc',
+		   			len : 5,
+					title: 'Force constant :',
+					emptyText: '50',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'The force constant used for SMD\n'],
+				Text : [
+		   			name : 'smd_cutoff',
+		   			len : 5,
+					title: 'Cutoff :',
+					emptyText: '3',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'The cut off for detecting the ligand closest atoms\n']
+		    ]
+	]//Vbox
+
+    ],//Pager
+	Pager : [
+	    name	: 'systemDB',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+	    Vbox: [
+		    extendH: 1,
+		    flushLeft	: 1,
+	    	Label	: [ text:
+			'Use this section to configure calculations on a MDB of docked ligands.\n',
+			flushLeft	: 1
+	    	
+	    	
+		   	],
+	    	Hbox: [
+	    		extendH: 1,
+	    		name : 'db_box',
+		   		FSBText : [
+		   			name : 'ligand_db',
+		   			len : 25,
+					title: 'Ligand database :',
+					allowBlank: 0,
+					mode: 'open',
+					bubbleHelp:
+		    		'The name of the database that contains ligands in ready to study binding poses.\n'
+		    	],
+	    		Button : [ name: 'browse_ligand_db', text: 'Browse...' ]
+		    ]
+	    ]
+	]
+	
+	    
+	    
+	    
+	
+	
+	
+    ];
+
+    local dvar_prevset = dvar_open[];
+    
+
+	
+   
+    local selAtoms;
+    local btid;
+    
+    
+    
+    WindowShow wkey;
+	WindowSetAttr[wkey, ['systemDB' :[sensitive:1]]];
+	WindowSetData[wkey, ['smd_fc':50]];
+	WindowSetData[wkey, ['smd_length':500]];
+	WindowSetData[wkey, ['smd_displ':2.5]];
+	WindowSetData[wkey, ['smd_cutoff':5.0]];
+
+	// main panel loop
+    loop
+	WindowSetAttr[ wkey, [
+	    panel    : [ sensitive: PANEL_SENSITIVE ]
+	]];
+
+	local [vals, trig] = WindowWait wkey;
+
+	if trig == 'file' then
+	    WindowSetData[wkey,['file':vals.(trig)]];
+
+
+
+	elseif trig == 'panel' and (vals.(trig) == PANEL_TEXT_RUN(RUN_IDX)) then
+
+		//check if the user selected 1 atom
+		if length SelectedAtoms[]===1 then
+
+		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
+			text:PANEL_TEXT_RUN]]]];
+			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff']];
+			print md_options;
+			print md_options.ligand_db;
+
+			startDB[md_options,suppFFParams];
+			
+			//commented this here as duck is always used for a mdb
+			//if length(md_options.ligand_db) > 0 then
+			//  startDB[md_options,suppFFParams];
+			//else
+			//  startMD[ligand,md_options,suppFFParams];
+			//endif
+		else
+			Warning 'You did not select the receptor atom used to define the reaction coordinate of Duck. Please click on the atom you want to investigate';
+
+		endif
+		
+		WindowSetAttr[wkey, ['systemDB' :[sensitive:1]]];
+		
+	elseif trig == 'browse_ligand_db' then
+		btid = run ['fbrowse.svl', [trig, wkey, 'Select Ligand Database', 'open', '*.mdb', 'ligand_db']];
+//		if btid then browsetasks = append [browsetasks, btid]; endif
+	
+	elseif trig == 'panel' and indexof[ vals.(trig),
+	    [PANEL_TEXT_RUN(CLOSE_IDX),PANEL_TEXT_STOP(CLOSE_IDX)]] then
+	   
+	  	WindowDestroy wkey;
+	  	return;
+	endif
+    endloop
+    
+endfunction
+
+#eof
+
+

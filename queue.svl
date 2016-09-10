@@ -1,0 +1,260 @@
+
+function writeEquilibrationQueue_MINO;
+function writeEquilibrationWorkstation;
+function writeMDQueue_MINO;
+function writeMDShell_Workstation;
+
+// write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
+global function writeAmberLaunchScripts_Workstation[]
+	writeEquilibrationWorkstation[];
+	local ns=1;
+    while (ns <=50) loop
+        writeMDShell_Workstation[ns];
+        ns=ns+1;
+    endloop
+endfunction
+
+global function launchAmber_Workstation[]
+	writeAmberLaunchScripts_Workstation[];
+
+endfunction
+
+
+
+//SRC MINO queues
+
+
+
+global function writeAmberLaunchScripts_MINO options
+	writeEquilibrationQueue_MINO[options];
+
+	local ns=1;
+    while (ns <=50) loop
+        writeMDQueue_MINO[ns];
+        ns=ns+1;
+    endloop
+endfunction
+
+global function launchAmber_MINO[options]
+	writeAmberLaunchScripts_MINO[options];
+
+endfunction
+
+//SRC MINO queues end
+
+
+
+
+global function writeEquilibrationQueue[options]
+	local currentDir= cd [];
+	local fh=fopenw ['equil.q'];
+	fwrite[fh,'#!/bin/bash\n'];
+	fwrite[fh,'###########################################################\n'];
+	fwrite[fh,'# USAGE:    MARC                                          #\n'];
+	fwrite[fh,'# qsub queue_whatever.csh to submit a job                 #\n'];
+	fwrite[fh,'# qstat to monitorize your jobs                           #\n'];
+	fwrite[fh,'# qstat -f to see an overview of the queues               #\n'];
+	fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
+	fwrite[fh,'###########################################################\n'];
+
+	fwrite[fh,'#$ -N jocs_equil          # The name of the job, can be whatever makes sense to you\n'];
+	fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
+	fwrite[fh,'#$ -cwd                 # The batchsystem should use the current directory as working directory.\n'];
+	fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
+	fwrite[fh,'#$ -o equil.q.o             # Redirect output stream to this file.\n'];
+	fwrite[fh,'#$ -e equil.q.e             # Redirect error stream to this file.\n'];
+	fwrite[fh,'#$ -l h_rt=10:00:00 # Time limit\n'];
+	fwrite[fh,'#$ -l gpu=1\n'];
+	fwrite[fh,'#$ -l h=\'syrah|garnatxa\'\n'];
+	fwrite[fh,'### TO CHECK IF WE DEAL WITH A TITAN GPU ###################\n'];
+	fwrite[fh,'smitool=`which nvidia-smi`\n'];
+	fwrite[fh,'type=`$smitool -L | grep TITAN | cut -f5 -d" " | tail -n 1`\n'];
+	fwrite[fh,'if [ "$type" == "TITAN" ]; then\n'];
+	fwrite[fh,'export AMBERHOME=/data/SOFT/amber12_TITAN\n'];
+	fwrite[fh,'export LD_LIBRARY_PATH=/usr/local/cuda-5.0/lib64\n'];
+	fwrite[fh,'export PATH=/data/SOFT/amber12_TITAN/bin:${}PATH{}\n','{','}'];
+	fwrite[fh,'else\n'];
+	fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
+	fwrite[fh,'fi\n'];
+	fwrite[fh,'#############################################################\n'];
+	fwrite[fh,'pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 2_eq.in -o 2_eq.out -p lib/system_solv.prmtop -c min.rst -r  2_eq.rst -x 2_eq.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'csh ../submit_jarz_gpu.csh 0 0 300K\n'];
+	fwrite[fh,'qsub md1.q\n'];
+	fwrite[fh,'exit\n'];
+	fclose fh;
+	
+	cd currentDir;
+endfunction
+
+
+
+global function writeMDQueue[number]
+	local currentDir= cd [];
+
+	local fh=fopenw [tok_cat['md',totok[number],'.q']];
+	fwrite[fh,'#!/bin/bash\n'];
+	fwrite[fh,'###########################################################\n'];
+	fwrite[fh,'# USAGE: MARC                                             #\n'];
+	fwrite[fh,'# qsub queue_whatever.csh to submit a job                 #\n'];
+	fwrite[fh,'# qstat to monitorize your jobs                           #\n'];
+	fwrite[fh,'# qstat -f to see an overview of the queues               #\n'];
+	fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
+	fwrite[fh,'###########################################################\n'];
+	fwrite[fh,'#$ -N md{}_system          # The name of the job, can be whatever makes sense to you\n',number];
+	fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
+	fwrite[fh,'#$ -cwd                 # The batchsystem should use the current directory as working directory.\n'];
+	fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
+	fwrite[fh,'#$ -o md{}.q.o             # Redirect output stream to this file.\n',number];
+	fwrite[fh,'#$ -e md{}.q.e             # Redirect error stream to this file.\n',number];
+	fwrite[fh,'#$ -l h_rt=20:00:00 # Time limit\n'];
+	fwrite[fh,'#$ -l gpu=1\n'];
+	fwrite[fh,'#$ -l h=\'syrah|garnatxa\'\n'];
+	fwrite[fh,'### TO CHECK IF WE DEAL WITH A TITAN GPU ###################\n'];
+	fwrite[fh,'smitool=`which nvidia-smi`\n'];
+	fwrite[fh,'type=`$smitool -L | grep TITAN | cut -f5 -d" " | tail -n 1`\n'];
+	fwrite[fh,'if [ "$type" == "TITAN" ]; then\n'];
+	fwrite[fh,'export AMBERHOME=/data/SOFT/amber12_TITAN\n'];
+	fwrite[fh,'export LD_LIBRARY_PATH=/usr/local/cuda-5.0/lib64\n'];
+	fwrite[fh,'export PATH=/data/SOFT/amber12_TITAN/bin:${}PATH{}\n','{','}'];
+	fwrite[fh,'else\n'];
+	fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
+	fwrite[fh,'fi\n'];
+	fwrite[fh,'#############################################################\n'];
+	if number==1 then
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];
+	  fwrite[fh,'csh ../submit_jarz_gpu.csh 0 1 325K\n'];
+	  fwrite[fh,'csh ../submit_jarz_gpu.csh 1 1 300K\n'];
+	else 
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}'];
+	  //fwrite[fh,'qsub md{}.q\n',number+5];
+	  fwrite[fh,'csh ../submit_jarz_gpu.csh {} {} 300K\n',number,number];
+	  fwrite[fh,'csh ../submit_jarz_gpu.csh {} {} 325K\n',number,number];
+	endif
+		
+	fwrite[fh,'qsub md{}.q\n',number+1];
+	fwrite[fh,'exit\n'];
+	fclose fh;
+	
+endfunction
+
+//SRC MINOTAURO QUEUES
+
+global function writeEquilibrationWorkstation[]
+	local currentDir= cd [];
+	local fh=fopenw ['equilibration.sh'];
+	fwrite[fh,'pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 2_eq.in -o 2_eq.out -p lib/system_solv.prmtop -c min.rst -r  2_eq.rst -x 2_eq.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'csh ../launch_jarz_gpu_Workstation.csh 0 0 300K\n'];
+	fwrite[fh,'sh md1.sh\n'];
+	fwrite[fh,'exit\n'];
+	fclose fh;
+	
+	cd currentDir;
+endfunction
+
+global function writeEquilibrationQueue_MINO[options]
+	local currentDir= cd [];
+	local fh=fopenw ['equil.q'];
+	fwrite[fh,'#!/bin/tcsh\n'];
+	fwrite[fh,'# @ job_name = jocs_equil          \n'];
+	fwrite[fh,'# @ initialdir = .                 \n'];
+	fwrite[fh,'# @ wall_clock_limit = 10:00:00    \n'];
+	fwrite[fh,'# @ output = equil.q.o             \n'];
+	fwrite[fh,'# @ error = equil.q.e              \n'];
+	fwrite[fh,'# @ total_tasks = 1                \n'];
+	fwrite[fh,'# @ tasks_per_node = 1             \n'];
+	fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
+	//fwrite[fh,'module load AMBER/12 prace\n'];
+	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
+	//fwrite[fh,'#module switch cuda/4.0 \n'];
+	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 2_eq.in -o 2_eq.out -p lib/system_solv.prmtop -c min.rst -r  2_eq.rst -x 2_eq.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 0 300K\n'];
+	fwrite[fh,'mnsubmit md1.q\n'];
+	fwrite[fh,'exit\n'];
+	fclose fh;
+	
+	cd currentDir;
+endfunction
+
+
+
+global function writeMDShell_Workstation[number]
+	local currentDir= cd [];
+	local fh=fopenw [tok_cat['md',totok[number],'.sh']];
+	fwrite[fh,'#!/bin/tcsh\n'];
+	if number==1 then
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	else
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	endif  
+	
+	fwrite[fh,'set i = {}\n',number-1];
+	fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
+	fwrite[fh,'@ i = $i + 1 \n'];
+	fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
+	fwrite[fh,'end\n'];
+	fwrite[fh,'csh ../launch_jarz_gpu_Workstation.csh {} {} 300K\n',number,number];
+	fwrite[fh,'csh ../launch_jarz_gpu_Workstation.csh {} {} 325K\n',number,number];
+    fwrite[fh,'sh md{}.sh\n',number+1];
+	fclose fh;	
+endfunction
+
+global function writeMDQueue_MINO[number]
+	local currentDir= cd [];
+	local fh=fopenw [tok_cat['md',totok[number],'.q']];
+	fwrite[fh,'#!/bin/tcsh\n'];
+	fwrite[fh,'# @ job_name = md{}_system         \n'];
+	fwrite[fh,'# @ initialdir = .                 \n'];
+	fwrite[fh,'# @ wall_clock_limit = 20:00:00    \n'];
+	fwrite[fh,'# @ output = md{}.q.o              \n'];
+	fwrite[fh,'# @ error = md{}.q.e               \n'];
+	fwrite[fh,'# @ total_tasks = 1                \n'];
+	fwrite[fh,'# @ tasks_per_node = 1             \n'];
+	fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
+	//fwrite[fh,'module load AMBER/12 prace\n'];
+	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
+	//fwrite[fh,'#module switch cuda/4.0 \n'];
+	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
+	if number==1 then
+	  fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'set i = 0\n'];
+	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
+	  fwrite[fh,'@ i = $i + 1 \n'];
+	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
+	  fwrite[fh,'end\n'];
+          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 1 1 300K\n'];
+          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 1 325K\n'];
+	else 
+	  fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	  fwrite[fh,'set i = {}\n',number-1];
+	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
+	  fwrite[fh,'@ i = $i + 1 \n'];
+	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
+	  fwrite[fh,'end\n'];
+          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh {} {} 300K\n',number,number];
+          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh {} {} 325K\n',number,number];
+	endif
+        fwrite[fh,'mnsubmit md{}.q\n',number+1];
+	fwrite[fh,'exit\n'];
+	fclose fh;	
+endfunction
+
+
+//SRC MINOTAURO QUEUES END
