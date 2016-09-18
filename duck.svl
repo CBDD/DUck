@@ -35,6 +35,7 @@ const WINDOW_NAME = 'DynamicUndocking';
 
 global JPATH;
 global FFPATH;
+global SCRIPTSPATH;
 
 
 function _Atoms;
@@ -326,6 +327,14 @@ local function startDB[options,suppFFParams]
 	SaveAs tmpName;
 	
 	Close[force:1];
+	//copy some important launch and analysis scripts 
+
+	JPATH = getenv 'MOE_SVL_LOAD';
+    SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_jarz_gpu_Workstation.sh'], 'launch_jarz_gpu_Workstation.sh'];
+	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_gpu.sh'], 'jar_template_gpu.sh'];
+	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_325K_gpu.sh'], 'jar_template_325K_gpu.sh'];
+	
 	
 	
 	
@@ -531,6 +540,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 // 	local selAtomsPositions=tr aPos SelectedAtoms[];
 // 	local distSelected= aDist[first SelectedAtoms[], second SelectedAtoms[]];
 	local ret=writeAmberInputs['',options,ligand,lenRec,selectedAtomIds];
+
 	if ret==0 then
 		launchAmber[options];
 	else
@@ -669,8 +679,48 @@ global function DuckPanel opt
 	    ]
 	],
 //SRC box end
+
 	Pager : [
 	    name	: 'systemMDparams',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+	    Vbox: [
+		    extendH: 1,
+		    flushLeft	: 1,
+	    		Label	: [ text:
+			'Modify MD specific parameters here.\n',
+			flushLeft	: 1
+		   	],
+	    		Hbox: [
+	    		extendH: 1,
+	    		name : 'md_params_box',
+		   		Text : [
+		   			name : 'equilibration_length',
+		   			len : 5,
+					title: 'Equilibration Length (ns) :',
+					emptyText: '1',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'The length in ns of the equilibration prior to calculations\n'],
+		   		Text : [
+		   			name : 'md_length',
+		   			len : 5,
+					title: 'MD chunk length (ns) :',
+					emptyText: '0.5',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'The length of MD chunks to run in between SMD simulations (ns)\n']
+
+			]
+		]
+    ],//Pager
+    Pager : [
+	    name	: 'systemSMDparams',
 	    flushLeft	: 1,
 	    margin	: 1,
 	    extendH	: 1,
@@ -689,10 +739,10 @@ global function DuckPanel opt
 		   		Text : [
 		   			name : 'smd_length',
 		   			len : 5,
-					title: 'SMD length (ps) :',
-					emptyText: '500',
+					title: 'SMD length (ns) :',
+					emptyText: '0.5',
 					allowBlank: 0,
-					type:'int',
+					type:'real',
 					bubbleHelp:
 		    		'The length in ns of the SMD simulation\n'],
 		   		Text : [
@@ -730,7 +780,7 @@ global function DuckPanel opt
 		    ]
 	]//Vbox
 
-    ],//Pager
+    ],
 	Pager : [
 	    name	: 'systemDB',
 	    flushLeft	: 1,
@@ -764,11 +814,6 @@ global function DuckPanel opt
 	    ]
 	]
 	
-	    
-	    
-	    
-	
-	
 	
     ];
 
@@ -785,9 +830,12 @@ global function DuckPanel opt
     WindowShow wkey;
 	WindowSetAttr[wkey, ['systemDB' :[sensitive:1]]];
 	WindowSetData[wkey, ['smd_fc':50]];
-	WindowSetData[wkey, ['smd_length':500]];
+	WindowSetData[wkey, ['smd_length':0.5]];
 	WindowSetData[wkey, ['smd_displ':2.5]];
 	WindowSetData[wkey, ['smd_cutoff':5.0]];
+	WindowSetData[wkey, ['equilibration_length':1]];
+	WindowSetData[wkey, ['md_length':0.5]];
+
 
 	// main panel loop
     loop
@@ -810,7 +858,7 @@ global function DuckPanel opt
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
 			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
-			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff']];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length']];
 			print md_options;
 			print md_options.ligand_db;
 

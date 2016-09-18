@@ -102,7 +102,7 @@ endfunction;
 
 
 //TODO: change back to 500000 
-local function writeThirdEquilibration[path,nRes]
+local function writeThirdEquilibration[path,nRes,simlength]
 	local currentDir= cd [];
 	cd path;
 	
@@ -116,7 +116,7 @@ local function writeThirdEquilibration[path,nRes]
 	fwrite[fh,'ntp=1, ntc=2, taup=2.0, \n'];
 	fwrite[fh,'ntb=2, ntf=2, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, ig=-1,  gamma_ln=4.0,\n'];
-	fwrite[fh,'nstlim=50000, dt=0.002,\n'];
+	fwrite[fh,'nstlim={}, dt=0.002,\n',round(simlength/2*1000000)];
 	fwrite[fh,'ntr=1,\n'];
 	fwrite[fh,'restraintmask=\':1-{} & !@H=\', \n',nRes];
 	fwrite[fh,'restraint_wt=1.0,\n'];
@@ -132,7 +132,7 @@ endfunction;
 
 // 5:
 
-local function writeMD[path,nRes,temperature]
+local function writeMD[path,nRes,temperature,simlength]
 	local currentDir= cd [];
 	cd path;
 	
@@ -145,7 +145,7 @@ fwrite[fh,'&cntrl\n'];
 	fwrite[fh,'ntc=2, ntf=2,\n'];
 	fwrite[fh,'ntb=1, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, gamma_ln=4.0, ig=-1,\n'];
-	fwrite[fh,'nstlim=500000, dt=0.002,\n'];
+	fwrite[fh,'nstlim={}, dt=0.002,\n',round(simlength/2*1000000)];
 	fwrite[fh,'ntr=1,\n'];
 	fwrite[fh,'restraintmask=\':1-{} & !@H=\', \n',nRes];
 	fwrite[fh,'restraint_wt=1.0,\n'];
@@ -173,9 +173,9 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'iwrap=1,\n'];
 	fwrite[fh,'ntb=1,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, gamma_ln=4.0,\n'];
-	fwrite[fh,'nstlim={}, dt=0.002,\n',round(options.smd_length/2)*1000];
+	fwrite[fh,'nstlim={}, dt=0.002,\n',round(options.smd_length/2*1000000)];
 	fwrite[fh,'ntc=2, ntf=2, cut=9.0,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
 	fwrite[fh,'jar=1,\n'];
 	fwrite[fh,'ntr=1, restraintmask=\':1-{} & !@H=\', restraint_wt=1.0,\n',nRes];
 	fwrite[fh,'/\n'];
@@ -187,6 +187,29 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'LISTOUT=POUT\n'];
 	fclose fh;
 	
+	
+	fh=fopenw tok_cat['jarz_325K.in'];
+	
+	fwrite[fh,' &cntrl\n'];
+	fwrite[fh,'ntx = 5, irest=1,\n'];
+	fwrite[fh,'iwrap=1,\n'];
+	fwrite[fh,'ntb=1,\n'];
+	fwrite[fh,'ntt=3, temp0=325.0, gamma_ln=4.0,\n'];
+	fwrite[fh,'nstlim={}, dt=0.002,\n',round(options.smd_length/2*1000000)];
+	fwrite[fh,'ntc=2, ntf=2, cut=9.0,\n'];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
+	fwrite[fh,'jar=1,\n'];
+	fwrite[fh,'ntr=1, restraintmask=\':1-{} & !@H=\', restraint_wt=1.0,\n',nRes];
+	fwrite[fh,'/\n'];
+	fwrite[fh,'&wt type=\'DUMPFREQ\', istep1=50 /\n'];
+	fwrite[fh,'&wt type=\'END\'   /\n'];
+	fwrite[fh,'DISANG=../dist_jarz.rst\n'];
+	fwrite[fh,'DUMPAVE=jarz.dat\n'];
+	fwrite[fh,'LISTIN=POUT\n'];
+	fwrite[fh,'LISTOUT=POUT\n'];
+	fclose fh;
+	
+
 	cd currentDir;
 	return 0;
 endfunction;
@@ -345,12 +368,12 @@ global function writeAmberInputs [path,options,ligand,nRes,selectedAtomIds]
 		return ret;
 	endif
 	
-	ret = writeThirdEquilibration[path,nRes];
+	ret = writeThirdEquilibration[path,nRes,options.equilibration_length];
 	if ret > 0 then
 		return ret;
 	endif
 	
-	ret = writeMD[path,nRes,300];
+	ret = writeMD[path,nRes,300,options.md_length];
 	if ret > 0 then
 		return ret;
 	endif
