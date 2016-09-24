@@ -334,7 +334,7 @@ local function startDB[options,suppFFParams]
 	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_jarz_gpu_Workstation.sh'], 'launch_jarz_gpu_Workstation.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_gpu.sh'], 'jar_template_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_325K_gpu.sh'], 'jar_template_325K_gpu.sh'];
-	
+	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 	
 	
 	
