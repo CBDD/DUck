@@ -15,7 +15,7 @@ for(file in inputFiles){
 	r=read.table(file)
 	if(length(dataf)==0) {
 		dataf=as.vector(r[,4])
-
+		dim(dataf)=c(length(dataf),1)
 	}
 	else {
 		
@@ -23,7 +23,6 @@ for(file in inputFiles){
 	}	
 
 }
-
 
 #now lets set to 0 all minima of the work curves from the SMD simulations
 times=r[,1]
@@ -34,5 +33,5 @@ normalizedOutput=apply(dataf,2,shiftMinimum,minValue)
 
 #now lets get the minimum Work on all SMD curves at a particular time -> this is out Wqb value
 
-wqb=min(normalizedOutput[which(times==4.25),])
+wqb=min(apply(normalizedOutput,2,max))
 cat(wqb)
