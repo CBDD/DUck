@@ -1,3 +1,9 @@
+##############################
+# getWqbValues.R script
+# Version 05/10/16
+# Rscript
+##############################
+
 #read all jarz.dat files
 inputFiles=list.files(pattern="jarz.dat",recursive=T)
 
