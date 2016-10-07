@@ -1,11 +1,20 @@
 ##############################
 # getWqbValues.R script
-# Version 05/10/16
+# Version 07/10/16
 # Rscript
 ##############################
-
+#read arguments (for plotting only after the last step) --> if "plot", it will make a pdf plot and a wqb_final.txt file
+args <- commandArgs(trailingOnly=TRUE);
+#assign default just in case no args are present
+if (length(args) > 0){
+	plotornot <- args[1]
+} else {
+	plotornot <- "noplot"
+}
 #read all jarz.dat files
 inputFiles=list.files(pattern="jarz.dat",recursive=T)
+#if the length of inputFiles is 0 --> no SMD run yet, return 100 and quit.
+if (length(inputFiles) == 0){cat("100\n");quit()}
 
 shiftMinimum=function(d,minValue){
 	localMin=min(d)
@@ -41,16 +50,7 @@ for (d in seq(dim(dataf)[2])){
 	#maximum has to be on second half, after minimum (to avoid maximum in the beginning)
 	maxwork=c(maxwork,max(dataf[,d][2501:5000]))	
 }
-##############################################################
-#####to plot the curves for checking the results, run the following lines:
-##############################################################
-#matplot(times,dataf,type="l")
-#for (d in seq(dim(dataf)[2])){
-#	a=dataf[,d]
-#	maxa=which(a==max(a))
-#	text(times[maxa]-0.1,a[maxa],labels=a[maxa],col=d)
-#}
-##############################################################
+
 
 #get the minimum value among each replica maximum work --> wqb
 wqb=round(min(maxwork),2)
@@ -60,3 +60,18 @@ if (wqb < 0){
 }
 cat(wqb)
 cat("\n")
+##############################################################
+#####to plot the curves for checking the results, run the following lines:
+##############################################################
+if (plotornot == "plot"){
+    png("wqb_plot.png")
+    matplot(times,dataf,type="l",xlab="HB Distance (A)",ylab="Work (kcal/mol)")
+    for (d in seq(dim(dataf)[2])){
+	    a=dataf[,d]
+	    maxa=which(a==max(a))
+	    text(times[maxa]-0.1,a[maxa],labels=round(a[maxa],2),col=d)
+    }
+    dev.off()
+    write(wqb,file="wqb_final.txt")
+}
+##############################################################
