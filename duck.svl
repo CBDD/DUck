@@ -47,6 +47,7 @@ function launchAmber;
 //SRC MINO
 function writeAmberLaunchScripts;
 function launchAmber_MINO;
+function launchAmber_Workstation;
 function writeAmberLaunchScripts_MINO;
 function my_fwrite_PDB;
 function MM;

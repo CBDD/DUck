@@ -2,7 +2,7 @@
 
 function writeEquilibrationQueue;
 function writeMDQueue;
-function writeAmberLaunchScripts_Workstation;
+//function writeAmberLaunchScripts_Workstation;
 
 //==== write amber input section ===== 
 // 1 :  perform a minimization 1000 steps
