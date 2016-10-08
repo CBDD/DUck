@@ -16,18 +16,28 @@ endfunction
 
 global function launchAmber_Workstation[]
 	writeAmberLaunchScripts_Workstation[];
-
 endfunction
 
+//SRC ADD NEXT LINES FROM AMBER_MD.SVL
+
+global function writeAmberLaunchScripts options
+	writeEquilibrationQueue[options];
+	local ns=1;
+	while (ns <=50) loop
+	    writeMDQueue[ns];
+	    ns=ns+1;
+	endloop
+endfunction
+
+global function launchAmber[options]
+	writeAmberLaunchScripts[options];
+endfunction
 
 
 //SRC MINO queues
 
-
-
 global function writeAmberLaunchScripts_MINO options
 	writeEquilibrationQueue_MINO[options];
-
 	local ns=1;
     while (ns <=50) loop
         writeMDQueue_MINO[ns];
@@ -37,7 +47,6 @@ endfunction
 
 global function launchAmber_MINO[options]
 	writeAmberLaunchScripts_MINO[options];
-
 endfunction
 
 //SRC MINO queues end
