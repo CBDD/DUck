@@ -1,9 +1,3 @@
-
-
-function writeEquilibrationQueue;
-function writeMDQueue;
-//function writeAmberLaunchScripts_Workstation;
-
 //==== write amber input section ===== 
 // 1 :  perform a minimization 1000 steps
 // 2 :  a restraint equilibration while heating the system

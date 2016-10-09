@@ -2,8 +2,10 @@
 function writeEquilibrationQueue_MINO;
 function writeEquilibrationWorkstation;
 function writeMDQueue_MINO;
+function writeMDQueue;
 function writeMDShell_Workstation;
 function writeAmberLaunchScripts_Workstation;
+function writeEquilibrationQueue;
 
 // write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
 global function writeAmberLaunchScripts_Workstation[]
