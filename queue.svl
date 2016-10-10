@@ -8,17 +8,17 @@ function writeAmberLaunchScripts_Workstation;
 function writeEquilibrationQueue;
 
 // write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
-global function writeAmberLaunchScripts_Workstation[]
+global function writeAmberLaunchScripts_Workstation[options]
 	writeEquilibrationWorkstation[];
 	local ns=1;
     while (ns <=50) loop
-        writeMDShell_Workstation[ns];
+        writeMDShell_Workstation[ns,options];
         ns=ns+1;
     endloop
 endfunction
 
-global function launchAmber_Workstation[]
-	writeAmberLaunchScripts_Workstation[];
+global function launchAmber_Workstation[options]
+	writeAmberLaunchScripts_Workstation[options];
 endfunction
 
 //SRC ADD NEXT LINES FROM AMBER_MD.SVL
@@ -27,7 +27,7 @@ global function writeAmberLaunchScripts options
 	writeEquilibrationQueue[options];
 	local ns=1;
 	while (ns <=50) loop
-	    writeMDQueue[ns];
+	    writeMDQueue[ns,options];
 	    ns=ns+1;
 	endloop
 endfunction
@@ -43,7 +43,7 @@ global function writeAmberLaunchScripts_MINO options
 	writeEquilibrationQueue_MINO[options];
 	local ns=1;
     while (ns <=50) loop
-        writeMDQueue_MINO[ns];
+        writeMDQueue_MINO[ns,options];
         ns=ns+1;
     endloop
 endfunction
@@ -105,7 +105,7 @@ endfunction
 
 
 
-global function writeMDQueue[number]
+global function writeMDQueue[number,options]
 	local currentDir= cd [];
 
 	local fh=fopenw [tok_cat['md',totok[number],'.q']];
@@ -137,9 +137,9 @@ global function writeMDQueue[number]
 	fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
 	fwrite[fh,'fi\n'];
 	fwrite[fh,'#############################################################\n'];
-        fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
-        fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < 6" | bc) -eq 1 ]; then\n'];
-        fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+        fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
+        fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < {}" | bc) -eq 1 ]; then\n',options.wqb_thresh];
+        fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
         fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
         fwrite[fh,'        exit\n'];
         fwrite[fh,'endif\n'];
@@ -215,7 +215,7 @@ endfunction
 
 
 
-global function writeMDShell_Workstation[number]
+global function writeMDShell_Workstation[number,options]
 	local currentDir= cd [];
 	local fh=fopenw [tok_cat['md',totok[number],'.sh']];
 	//fwrite[fh,'#!/bin/tcsh\n'];		//commented for now as there are several environment problems on osx
@@ -249,14 +249,14 @@ global function writeMDShell_Workstation[number]
 	endif
 	fwrite[fh,'wqb=`Rscript ../getWqbValues.R`\n'];
 	fwrite[fh,'echo "$wqb" > wqb.txt\n'];
-	fwrite[fh,'if [ $(echo " $wqb > 6.0" | bc) -eq 1 ]\n'];
+	fwrite[fh,'if [ $(echo " $wqb > {}" | bc) -eq 1 ]\n',options.wqb_thresh];
 	fwrite[fh,'then\n'];
 	fwrite[fh,'chmod +x ./md{}.sh; ./md{}.sh\n',number+1,number+1];
 	fwrite[fh,'fi\n'];
 	fclose fh; 
 endfunction
 
-global function writeMDQueue_MINO[number]
+global function writeMDQueue_MINO[number,options]
 	local currentDir= cd [];
 	local fh=fopenw [tok_cat['md',totok[number],'.q']];
 	fwrite[fh,'#!/bin/tcsh\n'];
@@ -272,10 +272,10 @@ global function writeMDQueue_MINO[number]
 	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
 	//fwrite[fh,'#module switch cuda/4.0 \n'];
 	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-	fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
+	fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
 	fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
-	fwrite[fh,'if ( `echo "$res < 6" | bc` == 1 ) then;\n'];
-	fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+	fwrite[fh,'if ( `echo "$res < {}" | bc` == 1 ) then;\n',options.wqb_thresh];
+	fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
 	fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
 	fwrite[fh,'        exit\n'];
 	fwrite[fh,'endif\n'];

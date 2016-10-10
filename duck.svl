@@ -557,7 +557,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	if options.queue_IN === 'Minotauro' then
 		if ret==0 then
 			launchAmber_MINO[options];
-			launchAmber_Workstation[];
+			launchAmber_Workstation[options];
 		else
 			sleep 3;
 			Message[ret,''];
@@ -566,7 +566,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	if options.queue_IN === 'Marc' then 
 		if ret==0 then
 			launchAmber[options];
-			launchAmber_Workstation[];
+			launchAmber_Workstation[options];
 		else
 			sleep 3;
 			Message[ret,''];
