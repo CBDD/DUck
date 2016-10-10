@@ -219,14 +219,15 @@ global function writeMDShell_Workstation[number]
 	local currentDir= cd [];
 	local fh=fopenw [tok_cat['md',totok[number],'.sh']];
 	//fwrite[fh,'#!/bin/tcsh\n'];		//commented for now as there are several environment problems on osx
-        fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
-        fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
-        fwrite[fh,'if ( `echo "$res < 6" | bc` == 1 ) then;\n'];
-        fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
-        fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
-        fwrite[fh,'        exit\n'];
-        fwrite[fh,'endif\n'];
-        fwrite[fh,'###################################################\n'];
+    //    fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
+    //    fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
+    //    fwrite[fh,'if ( `echo "$res < 6" | bc` == 1 ) then;\n'];
+    //    fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+    //    fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+    //    fwrite[fh,'        exit\n'];
+    //    fwrite[fh,'endif\n'];
+    //    fwrite[fh,'###################################################\n'];
+    //had the comment the previous block as this is not bash, but csh
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	else

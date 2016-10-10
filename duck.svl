@@ -788,6 +788,33 @@ global function DuckPanel opt
 
     ],
 	Pager : [
+	    name	: 'wqbThresh',
+	    flushLeft	: 1,
+	    margin	: 1,
+	    extendH	: 1,
+	    margin	: 1,
+	    shadow	: 'etched-in',
+	    Vbox: [
+		    extendH: 1,
+		    flushLeft	: 1,
+	    	Label	: [ text:
+			'Early termination definition.\n',
+			flushLeft	: 1
+	    	
+	    	
+		   	],
+	    	Text : [
+		   			name : 'wqb_thresh',
+		   			len : 5,
+					title: 'Wqb Threshold :',
+					emptyText: '6',
+					allowBlank: 0,
+					type:'real',
+					bubbleHelp:
+		    		'Set the cutoff below which no more SMD will be run if at least two SMD simulations result in Wqb values lower than this threshold.\n']
+	    ]
+	],
+	Pager : [
 	    name	: 'systemDB',
 	    flushLeft	: 1,
 	    margin	: 1,
@@ -841,6 +868,7 @@ global function DuckPanel opt
 	WindowSetData[wkey, ['smd_cutoff':5.0]];
 	WindowSetData[wkey, ['equilibration_length':1]];
 	WindowSetData[wkey, ['md_length':0.5]];
+	WindowSetData[wkey, ['wqb_thresh':6.0]];
 
 
 	// main panel loop
@@ -864,7 +892,7 @@ global function DuckPanel opt
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
 			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
-			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length']];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
 			print md_options;
 			print md_options.ligand_db;
 
