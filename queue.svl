@@ -174,7 +174,7 @@ global function writeEquilibrationWorkstation[]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 300K\n'];
+	fwrite[fh,'chmod +x ../launch_jarz_gpu_Workstation.sh; ../launch_jarz_gpu_Workstation.sh 0 0 300K\n'];
 	//fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 325K\n'];
 	fwrite[fh,'chmod +x md1.sh; ./md1.sh\n'];
 	fwrite[fh,'exit\n'];
