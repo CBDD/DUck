@@ -2,7 +2,10 @@
 function writeEquilibrationQueue_MINO;
 function writeEquilibrationWorkstation;
 function writeMDQueue_MINO;
+function writeMDQueue;
 function writeMDShell_Workstation;
+function writeAmberLaunchScripts_Workstation;
+function writeEquilibrationQueue;
 
 // write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
 global function writeAmberLaunchScripts_Workstation[]
@@ -16,18 +19,28 @@ endfunction
 
 global function launchAmber_Workstation[]
 	writeAmberLaunchScripts_Workstation[];
-
 endfunction
 
+//SRC ADD NEXT LINES FROM AMBER_MD.SVL
+
+global function writeAmberLaunchScripts options
+	writeEquilibrationQueue[options];
+	local ns=1;
+	while (ns <=50) loop
+	    writeMDQueue[ns];
+	    ns=ns+1;
+	endloop
+endfunction
+
+global function launchAmber[options]
+	writeAmberLaunchScripts[options];
+endfunction
 
 
 //SRC MINO queues
 
-
-
 global function writeAmberLaunchScripts_MINO options
 	writeEquilibrationQueue_MINO[options];
-
 	local ns=1;
     while (ns <=50) loop
         writeMDQueue_MINO[ns];
@@ -37,7 +50,6 @@ endfunction
 
 global function launchAmber_MINO[options]
 	writeAmberLaunchScripts_MINO[options];
-
 endfunction
 
 //SRC MINO queues end
@@ -125,6 +137,13 @@ global function writeMDQueue[number]
 	fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
 	fwrite[fh,'fi\n'];
 	fwrite[fh,'#############################################################\n'];
+        fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
+        fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < 6" | bc) -eq 1 ]; then\n'];
+        fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+        fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+        fwrite[fh,'        exit\n'];
+        fwrite[fh,'endif\n'];
+        fwrite[fh,'###################################################\n'];
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];
@@ -180,12 +199,12 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
 	//fwrite[fh,'#module switch cuda/4.0 \n'];
 	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 2_eq.in -o 2_eq.out -p lib/system_solv.prmtop -c min.rst -r  2_eq.rst -x 2_eq.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 2_eq.in -o 2_eq.out -p lib/system_solv.prmtop -c min.rst -r  2_eq.rst -x 2_eq.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
 	fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 0 300K\n'];
 	fwrite[fh,'mnsubmit md1.q\n'];
 	fwrite[fh,'exit\n'];
@@ -200,6 +219,14 @@ global function writeMDShell_Workstation[number]
 	local currentDir= cd [];
 	local fh=fopenw [tok_cat['md',totok[number],'.sh']];
 	//fwrite[fh,'#!/bin/tcsh\n'];		//commented for now as there are several environment problems on osx
+        fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
+        fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
+        fwrite[fh,'if ( `echo "$res < 6" | bc` == 1 ) then;\n'];
+        fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+        fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+        fwrite[fh,'        exit\n'];
+        fwrite[fh,'endif\n'];
+        fwrite[fh,'###################################################\n'];
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	else
@@ -239,8 +266,17 @@ global function writeMDQueue_MINO[number]
 	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
 	//fwrite[fh,'#module switch cuda/4.0 \n'];
 	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
+	fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
+	fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
+	fwrite[fh,'if ( `echo "$res < 6" | bc` == 1 ) then;\n'];
+	fwrite[fh,'        echo Wqb lower than 6, stopping DUck runs;\n'];
+	fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+	fwrite[fh,'        exit\n'];
+	fwrite[fh,'endif\n'];
+	fwrite[fh,'###################################################\n'];
+
 	if number==1 then
-	  fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	  fwrite[fh,'set i = 0\n'];
 	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
 	  fwrite[fh,'@ i = $i + 1 \n'];
@@ -249,7 +285,7 @@ global function writeMDQueue_MINO[number]
           fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 1 1 300K\n'];
           fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 1 325K\n'];
 	else 
-	  fwrite[fh,'/usr/local/bin/srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
 	  fwrite[fh,'set i = {}\n',number-1];
 	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
 	  fwrite[fh,'@ i = $i + 1 \n'];

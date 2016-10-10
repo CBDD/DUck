@@ -1,9 +1,3 @@
-
-
-function writeEquilibrationQueue;
-function writeMDQueue;
-function writeAmberLaunchScripts_Workstation;
-
 //==== write amber input section ===== 
 // 1 :  perform a minimization 1000 steps
 // 2 :  a restraint equilibration while heating the system
@@ -320,26 +314,23 @@ local function writeJarzRestraints[path,atomIndices,options]
 endfunction
 
 
-
-
-global function writeAmberLaunchScripts options
-	writeEquilibrationQueue[options];
-
-	local ns=1;
-	while (ns <=50) loop
-	    writeMDQueue[ns];
-	    ns=ns+1;
-	endloop
-	
-endfunction
-
-
-
-
-global function launchAmber[options]
-	writeAmberLaunchScripts[options];
-	writeAmberLaunchScripts_Workstation[];
-endfunction
+//SRC COMMENT NEXT LINES MOVED TO QUEUE.SVL
+//
+//global function writeAmberLaunchScripts options
+//	writeEquilibrationQueue[options];
+//
+//	local ns=1;
+//	while (ns <=50) loop
+//	    writeMDQueue[ns];
+//	    ns=ns+1;
+//	endloop
+//	
+//endfunction
+//global function launchAmber[options]
+//	writeAmberLaunchScripts[options];
+//	writeAmberLaunchScripts_Workstation[];
+//endfunction
+//////
 
 
 global function writeAmberInputs [path,options,ligand,nRes,selectedAtomIds]
