@@ -175,7 +175,7 @@ global function writeEquilibrationWorkstation[]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
 	fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 300K\n'];
-	fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 325K\n'];
+	//fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 325K\n'];
 	fwrite[fh,'chmod +x md1.sh; ./md1.sh\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -196,7 +196,7 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'# @ tasks_per_node = 1             \n'];
 	fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
 	//fwrite[fh,'module load AMBER/12 prace\n'];
-	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
+	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
 	//fwrite[fh,'#module switch cuda/4.0 \n'];
 	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
@@ -239,8 +239,13 @@ global function writeMDShell_Workstation[number]
 //	fwrite[fh,'((i+=1))\n'];
 //	fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 //	fwrite[fh,'done\n'];
-	fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 300K\n',number,number];
-	fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 325K\n',number,number];
+	if number==1 then
+		fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 1 325K\n'];
+		fwrite[fh,'../launch_jarz_gpu_Workstation.sh 1 1 300K\n'];
+	else 
+		fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 300K\n',number,number];
+		fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 325K\n',number,number];
+	endif
 	fwrite[fh,'wqb=`Rscript ../getWqbValues.R`\n'];
 	fwrite[fh,'echo "$wqb" > wqb.txt\n'];
 	fwrite[fh,'if [ $(echo " $wqb > 6.0" | bc) -eq 1 ]\n'];
@@ -263,7 +268,7 @@ global function writeMDQueue_MINO[number]
 	fwrite[fh,'# @ tasks_per_node = 1             \n'];
 	fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
 	//fwrite[fh,'module load AMBER/12 prace\n'];
-	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
+	fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14\n'];
 	//fwrite[fh,'#module switch cuda/4.0 \n'];
 	fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
 	fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN 6########\n'];
