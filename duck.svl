@@ -345,7 +345,7 @@ local function startDB[options,suppFFParams]
 		return;
 	endif
 	local mdb=db_Open options.ligand_db;
-	local entries=db_Entries mdb;
+	local entries=db_Entries mdb;	
 
 	local molfield='mol';
 	local [fields, types] = db_Fields mdb;
@@ -539,7 +539,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	msgKey=executeLeap['lib','doleaped.leap'];
 	local selectedAtomIds=getSelectedAtomIdsFromPDB['lib/system_leaped.pdb',cat [ligandSelection,receptorSelection]];
 	Message[msgKey,[]];
-	local lenRec = length uniq aResidue Atoms receptor;
+	local lenRec = length uniq aResidue oAtoms receptor;
 // 	local selAtomsPositions=tr aPos SelectedAtoms[];
 // 	local distSelected= aDist[first SelectedAtoms[], second SelectedAtoms[]];
 	local ret=writeAmberInputs['',options,ligand,lenRec,selectedAtomIds];
