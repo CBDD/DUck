@@ -250,7 +250,7 @@ local function executeLeap [path,leapfile]
 	local pid=exe_open [twrite['tleap -f {}',leapfile]];
 	local fout=exe_stdout pid;
 	local ferr=exe_stdout pid;
-	local tleap_msg_key = Message [0, 'Running Tleap to create the system'];
+	local tleap_msg_key = Message [0, 'Configuring the system using Ambertools'];
 	loop
 		sleep 1;
 	until exe_status pid ==0
@@ -540,6 +540,8 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	local selectedAtomIds=getSelectedAtomIdsFromPDB['lib/system_leaped.pdb',cat [ligandSelection,receptorSelection]];
 	Message[msgKey,[]];
 	local lenRec = length uniq aResidue oAtoms receptor;
+	local lenOtherAtoms = app add [ rType aResidue Atoms[] == 'none'];
+	lenRec=lenRec-lenOtherAtoms;
 // 	local selAtomsPositions=tr aPos SelectedAtoms[];
 // 	local distSelected= aDist[first SelectedAtoms[], second SelectedAtoms[]];
 	local ret=writeAmberInputs['',options,ligand,lenRec,selectedAtomIds];
@@ -556,8 +558,8 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 //SRC MINO or Marc queues
 	if options.queue_IN === 'Minotauro' then
 		if ret==0 then
-			launchAmber_MINO[options];
-			launchAmber_Workstation[options];
+			launchAmber_MINO options;
+			launchAmber_Workstation options;
 		else
 			sleep 3;
 			Message[ret,''];
@@ -565,8 +567,8 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	endif
 	if options.queue_IN === 'Marc' then 
 		if ret==0 then
-			launchAmber[options];
-			launchAmber_Workstation[options];
+			launchAmber options;
+			launchAmber_Workstation options;
 		else
 			sleep 3;
 			Message[ret,''];

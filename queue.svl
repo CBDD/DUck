@@ -8,7 +8,7 @@ function writeAmberLaunchScripts_Workstation;
 function writeEquilibrationQueue;
 
 // write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
-global function writeAmberLaunchScripts_Workstation[options]
+global function writeAmberLaunchScripts_Workstation options
 	writeEquilibrationWorkstation[];
 	local ns=1;
     while (ns <=50) loop
@@ -17,8 +17,8 @@ global function writeAmberLaunchScripts_Workstation[options]
     endloop
 endfunction
 
-global function launchAmber_Workstation[options]
-	writeAmberLaunchScripts_Workstation[options];
+global function launchAmber_Workstation options
+	writeAmberLaunchScripts_Workstation options;
 endfunction
 
 //SRC ADD NEXT LINES FROM AMBER_MD.SVL
@@ -32,15 +32,15 @@ global function writeAmberLaunchScripts options
 	endloop
 endfunction
 
-global function launchAmber[options]
-	writeAmberLaunchScripts[options];
+global function launchAmber options
+	writeAmberLaunchScripts options;
 endfunction
 
 
 //SRC MINO queues
 
 global function writeAmberLaunchScripts_MINO options
-	writeEquilibrationQueue_MINO[options];
+	writeEquilibrationQueue_MINO options;
 	local ns=1;
     while (ns <=50) loop
         writeMDQueue_MINO[ns,options];
@@ -48,8 +48,8 @@ global function writeAmberLaunchScripts_MINO options
     endloop
 endfunction
 
-global function launchAmber_MINO[options]
-	writeAmberLaunchScripts_MINO[options];
+global function launchAmber_MINO options
+	writeAmberLaunchScripts_MINO options;
 endfunction
 
 //SRC MINO queues end
@@ -107,6 +107,7 @@ endfunction
 
 global function writeMDQueue[number,options]
 	local currentDir= cd [];
+	print options;
 
 	local fh=fopenw [tok_cat['md',totok[number],'.q']];
 	fwrite[fh,'#!/bin/bash\n'];
