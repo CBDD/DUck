@@ -373,7 +373,7 @@ local function startDB[options,suppFFParams]
 ////SRC MINO queue end
 	for entry in entries loop
 		Open tmpName;
-		local msgKey=Message[0,tok_cat['Currently treating molecule ',totok molCount]];
+		local msgKey=Message[0,tok_cat['Preparing simulations for molecule ',totok molCount]];
 		local protein=cat oAtoms Chains[];
 
 		local ligand=mol_Create first db_ReadFields [mdb,entry,molfield];
@@ -540,7 +540,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	local selectedAtomIds=getSelectedAtomIdsFromPDB['lib/system_leaped.pdb',cat [ligandSelection,receptorSelection]];
 	Message[msgKey,[]];
 	local lenRec = length uniq aResidue oAtoms receptor;
-	local lenOtherAtoms = app add [ rType aResidue Atoms[] == 'none'];
+	local lenOtherAtoms = app add [ rType uniq aResidue oAtoms receptor == 'none'];
 	lenRec=lenRec-lenOtherAtoms;
 // 	local selAtomsPositions=tr aPos SelectedAtoms[];
 // 	local distSelected= aDist[first SelectedAtoms[], second SelectedAtoms[]];
