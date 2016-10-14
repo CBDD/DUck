@@ -1,6 +1,6 @@
 ##############################
 # getWqbValues.R script
-# Version 07/10/16
+# Version 14/10/16
 # Rscript
 ##############################
 #read arguments (for plotting only after the last step) --> if "plot", it will make a pdf plot and a wqb_final.txt file
@@ -17,17 +17,24 @@ inputFiles=list.files(pattern="jarz.dat",recursive=T)
 if (length(inputFiles) == 0){cat("100\n");quit()}
 
 shiftMinimum=function(d,minValue){
-	localMin=min(d)
-	diffToSubstract=minValue-localMin
-	d=d-diffToSubstract-minValue
+	#SRC COMMENTED TO AVOID ERRORS IN MIN CALC
+	#localMin=min(d)
+	#diffToSubstract=minValue-localMin
+	#d=d-diffToSubstract-minValue
+	d=d-minValue
 	return(d)
 }
-
 #initiate dataf for reading files
 dataf=c()
 #read all currently created jarz.dat output files to calculate current running Wqb
 for(file in inputFiles){
 	r=read.table(file)
+	#CHECK IF JARZ.DAT IS COMPLETE: LAST STEP IS ALMOST 5 (FINAL POINT OF SMD)
+	laststep_r=r[,1][dim(r)[1]]
+	if (abs(laststep_r-5.0) > 1e-3){
+		cat(file,"file with not finished SMD, please check. Removed from calculations.\n")
+		next
+	}
 	if(length(dataf)==0) {
 		prov=cbind(as.vector(r[,4]))
 		#normalize each file when reading (set to 0 minima before half of the simulation)
@@ -65,11 +72,12 @@ cat("\n")
 ##############################################################
 if (plotornot == "plot"){
     png("wqb_plot.png")
-    matplot(times,dataf,type="l",xlab="HB Distance (A)",ylab="Work (kcal/mol)")
+    col_set <- rainbow(dim(dataf)[2])
+    matplot(times,dataf,type="l",xlab="HB Distance (A)",ylab="Work (kcal/mol)",col=col_set)
     for (d in seq(dim(dataf)[2])){
 	    a=dataf[,d]
-	    maxa=which(a==max(a))
-	    text(times[maxa]-0.1,a[maxa],labels=round(a[maxa],2),col=d)
+	    maxa=which(a==max(a[2501:5000]))
+	    text(times[maxa]-0.1,a[maxa],labels=round(a[maxa],3),col=col_set[d])
     }
     dev.off()
     write(wqb,file="wqb_final.txt")
