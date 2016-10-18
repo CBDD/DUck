@@ -32,7 +32,9 @@ for(file in inputFiles){
 	#CHECK IF JARZ.DAT IS COMPLETE: LAST STEP IS ALMOST 5 (FINAL POINT OF SMD)
 	laststep_r=r[,1][dim(r)[1]]
 	if (abs(laststep_r-5.0) > 1e-3){
-		cat(file,"file with not finished SMD, please check. Removed from calculations.\n")
+		if(plotornot == "showerrors"){
+			cat(file,"file with not finished SMD, please check. Removed from calculations.\n")
+		}
 		next
 	}
 	if(length(dataf)==0) {
