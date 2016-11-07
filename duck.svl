@@ -797,17 +797,17 @@ global function DuckPanel opt
 					allowBlank: 0,
 					type:'real',
 					bubbleHelp:
-		    		'The force constant used for SMD\n'],
-				Text : [
-		   			name : 'smd_cutoff',
-		   			len : 5,
-					title: 'Cutoff :',
-					emptyText: '3',
-					allowBlank: 0,
-					type:'real',
-					bubbleHelp:
-		    		'The cut off for detecting the ligand closest atoms\n']
-		    ]
+		    		'The force constant used for SMD\n']
+			//SRC	Text : [
+		   	//not		name : 'smd_cutoff',
+		   	//used		len : 5,
+			//		title: 'Cutoff :',
+			//		emptyText: '3',
+			//		allowBlank: 0,
+			//		type:'real',
+			//		bubbleHelp:
+		    	//	'The cut off for detecting the ligand closest atoms\n']
+		     ]
 	]//Vbox
 
     ],
@@ -835,7 +835,7 @@ global function DuckPanel opt
 					allowBlank: 0,
 					type:'real',
 					bubbleHelp:
-		    		'Set the cutoff below which no more SMD will be run if at least two SMD simulations result in Wqb values lower than this threshold.\n']
+		    		'Set the cutoff below which no more SMD will be run if at least one SMD simulations result in Wqb values lower than this threshold.\n']
 	    ]
 	],
 	Pager : [
@@ -889,7 +889,7 @@ global function DuckPanel opt
 	WindowSetData[wkey, ['smd_fc':50]];
 	WindowSetData[wkey, ['smd_length':0.5]];
 	WindowSetData[wkey, ['smd_displ':2.5]];
-	WindowSetData[wkey, ['smd_cutoff':5.0]];
+	//SRC WindowSetData[wkey, ['smd_cutoff':5.0]];
 	WindowSetData[wkey, ['equilibration_length':1]];
 	WindowSetData[wkey, ['md_length':0.5]];
 	WindowSetData[wkey, ['wqb_thresh':6.0]];
@@ -916,7 +916,8 @@ global function DuckPanel opt
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
 			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
-			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
+			//local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','equilibration_length','md_length','wqb_thresh']];
 			print md_options;
 			print md_options.ligand_db;
 
