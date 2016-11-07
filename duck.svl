@@ -701,7 +701,7 @@ global function DuckPanel opt
 			extendH:1,
 		 	Checkbox:[
                                 name : 'input_WS',
-                                title : 'Input files for local execution',
+                                title : 'Write input files for local execution',
                                 onTrigger: 'return',
                                 bubbleHelp:'Select in case you also need files for local execution or to adapt them to other queueing systems.'
                            ]
@@ -779,7 +779,7 @@ global function DuckPanel opt
 		   			name : 'smd_displ',
 		   			len : 5,
 					title: 'SMD displacement (A) :',
-					emptyText: '3',
+					emptyText: '2.5',
 					allowBlank: 0,
 					type:'real',
 					bubbleHelp:
@@ -824,19 +824,26 @@ global function DuckPanel opt
 	    	Label	: [ text:
 			'Early termination definition.\n',
 			flushLeft	: 1
-	    	
-	    	
 		   	],
-	    	Text : [
+		    Hbox: [
+			Text : [
 		   			name : 'wqb_thresh',
 		   			len : 5,
 					title: 'Wqb Threshold :',
 					emptyText: '6',
 					allowBlank: 0,
 					type:'real',
-					bubbleHelp:
-		    		'Set the cutoff below which no more SMD will be run if at least one SMD simulations result in Wqb values lower than this threshold.\n']
-	    ]
+					bubbleHelp: 'Set the cutoff below which no more SMD will be run if at least one SMD simulations result in Wqb values lower than this threshold.\n'],
+			Text : [
+                                        name : 'wqb_maxruns',
+                                        len : 5,
+                                        title: 'Maximum DUck SMD runs:',
+                                        emptyText: '50',
+                                        allowBlank: 0,
+                                        type:'real',
+                                        bubbleHelp: 'Set the maximum number of DUck SMD runs not including the 2 runs after equilibration. Default is set to 50 (for both 300 and 325K).\n']
+			]
+	    	]
 	],
 	Pager : [
 	    name	: 'systemDB',
@@ -893,6 +900,7 @@ global function DuckPanel opt
 	WindowSetData[wkey, ['equilibration_length':1]];
 	WindowSetData[wkey, ['md_length':0.5]];
 	WindowSetData[wkey, ['wqb_thresh':6.0]];
+	WindowSetData[wkey, ['wqb_maxruns':50]];
 
 
 	// main panel loop
@@ -917,7 +925,7 @@ global function DuckPanel opt
 			text:PANEL_TEXT_RUN]]]];
 			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
 			//local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
-			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','equilibration_length','md_length','wqb_thresh']];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','equilibration_length','md_length','wqb_thresh','wqb_maxruns']];
 			print md_options;
 			print md_options.ligand_db;
 

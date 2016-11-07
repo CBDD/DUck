@@ -14,7 +14,7 @@ function writeDUCKSMDQueue_Workstation;
 global function writeAmberLaunchScripts_Workstation options
 	writeEquilibrationWorkstation[];
 	local ns=1;
-    while (ns <=50) loop
+    while (ns <= options.wqb_maxruns) loop
         writeMDShell_Workstation[ns,options];
         ns=ns+1;
     endloop
@@ -30,7 +30,7 @@ endfunction
 global function writeAmberLaunchScripts options
 	writeEquilibrationQueue[options];
 	local ns=1;
-	while (ns <=50) loop
+	while (ns <= options.wqb_maxruns) loop
 	    writeMDQueue[ns,options];
 	    ns=ns+1;
 	endloop
@@ -47,7 +47,7 @@ endfunction
 global function writeAmberLaunchScripts_MINO options
 	writeEquilibrationQueue_MINO options;
 	local ns=1;
-    while (ns <=50) loop
+    while (ns <= options.wqb_maxruns) loop
         writeMDQueue_MINO[ns,options];
         ns=ns+1;
     endloop
