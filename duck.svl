@@ -332,8 +332,7 @@ local function startDB[options,suppFFParams]
 
 	JPATH = getenv 'MOE_SVL_LOAD';
     SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_duck_gpu_Workstation.sh'], 'launch_duck_gpu_Workstation.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 
@@ -343,6 +342,9 @@ local function startDB[options,suppFFParams]
         if options.queue_IN === 'Marc' then
                 rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MARC.csh'], 'submit_duck_smd_gpu.csh'];
         endif
+	if options.input_WS == 1 then
+		rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_duck_gpu_Workstation.sh'], 'launch_duck_gpu_Workstation.sh'];
+	endif
 	
 	
 	
@@ -566,7 +568,6 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	if options.queue_IN === 'Minotauro' then
 		if ret==0 then
 			launchAmber_MINO options;
-			launchAmber_Workstation options;
 		else
 			sleep 3;
 			Message[ret,''];
@@ -575,11 +576,16 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	if options.queue_IN === 'Marc' then 
 		if ret==0 then
 			launchAmber options;
-			launchAmber_Workstation options;
 		else
 			sleep 3;
 			Message[ret,''];
 		endif
+	endif
+	//SRC if local workstation also run
+	//print options.input_WS;
+	if options.input_WS == 1 then
+		local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_duck_gpu_Workstation.sh'], '../launch_duck_gpu_Workstation.sh'];
+		launchAmber_Workstation options;
 	endif
 //SRC MINO or Marc queues end
 endfunction
@@ -677,7 +683,7 @@ global function DuckPanel opt
 		    extendH: 1,
 		    flushLeft	: 1,
 	    	Label	: [ text:
-			'Choose between queue input for "Marc" or for "Minotauro".\n',
+			'Choose between queue input for "Marc" (SGE) or for "Minotauro" (SLURM).\n',
 			flushLeft	: 1
 	    	
 	    	
@@ -690,8 +696,17 @@ global function DuckPanel opt
 				text:['Marc', 'Minotauro'],
 		    		bubbleHelp:'Choose where to run the MD jobs.\n'
 		    	]
-		   ]
-	    ]
+			],
+		    Hbox: [
+			extendH:1,
+		 	Checkbox:[
+                                name : 'input_WS',
+                                title : 'Input files for local execution',
+                                onTrigger: 'return',
+                                bubbleHelp:'Select in case you also need files for local execution or to adapt them to other queueing systems.'
+                           ]
+			]
+		 ]
 	],
 //SRC box end
 
@@ -901,7 +916,7 @@ global function DuckPanel opt
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
 			//[atoms,receptor,ligand] = MacroGetSelection[ GetSetSelections[wkey], 1, 1, 1];
-			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
+			local md_options=WindowGetData[wkey,['ffParams','ligand_db','queue_IN','input_WS','smd_length','smd_displ','smd_fc','smd_cutoff','equilibration_length','md_length','wqb_thresh']];
 			print md_options;
 			print md_options.ligand_db;
 
