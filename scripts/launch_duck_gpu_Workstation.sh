@@ -10,7 +10,7 @@ do
 	echo "$nu";
 	if [ $ARG3 = "300K" ];
 	then
-		dir="JAR_$nu";
+		dir="DUCK_$nu";
 		mkdir $dir;
 		sed 's/ZZ/'$nu'/g' ../jar_template_gpu.sh > ./${dir}/jar_${nu}.sh;
 		if [ ${nu} -eq 0 ]
@@ -21,7 +21,7 @@ do
 		cd $dir; chmod +x jar_${nu}.sh; ./jar_${nu}.sh; cd ..;
 	elif [ $ARG3 = "325K" ];
 		then
-		dir="JAR_325K_$nu";
+		dir="DUCK_325K_$nu";
 		mkdir $dir;
 		sed 's/ZZ/'$nu'/g' ../jar_template_325K_gpu.sh > ./${dir}/jar_325K_${nu}.sh;
 		if [ ${nu} -eq 0 ]
@@ -35,14 +35,3 @@ do
 	
 done
 
-
-#set dir = JAR_$nu
-#		mkdir $dir
-#		sed 's/ZZ/'$nu'/g' ../jar_template_gpu.sh > ./${dir}/jar_${nu}.sh
-#		if ($nu == 0) then
-#			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/jar_${nu}.sh > tmp
-#			mv tmp ./${dir}/jar_${nu}.sh
-#		endif
-#		cd $dir; sh jar_${nu}.sh; cd ..
-#	@ nu = $nu + 1
-#end

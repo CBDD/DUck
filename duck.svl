@@ -332,9 +332,9 @@ local function startDB[options,suppFFParams]
 
 	JPATH = getenv 'MOE_SVL_LOAD';
     SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_jarz_gpu_Workstation.sh'], 'launch_jarz_gpu_Workstation.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_gpu.sh'], 'jar_template_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/jar_template_325K_gpu.sh'], 'jar_template_325K_gpu.sh'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_duck_gpu_Workstation.sh'], 'launch_duck_gpu_Workstation.sh'];
+	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
+	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 	
 	

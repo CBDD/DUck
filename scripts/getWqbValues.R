@@ -11,8 +11,8 @@ if (length(args) > 0){
 } else {
 	plotornot <- "noplot"
 }
-#read all jarz.dat files
-inputFiles=list.files(pattern="jarz.dat",recursive=T)
+#read all duck.dat files
+inputFiles=list.files(pattern="duck.dat",recursive=T)
 #if the length of inputFiles is 0 --> no SMD run yet, return 100 and quit.
 if (length(inputFiles) == 0){cat("100\n");quit()}
 
@@ -26,7 +26,7 @@ shiftMinimum=function(d,minValue){
 }
 #initiate dataf for reading files
 dataf=c()
-#read all currently created jarz.dat output files to calculate current running Wqb
+#read all currently created duck.dat output files to calculate current running Wqb
 for(file in inputFiles){
 	r=read.table(file)
 	#CHECK IF JARZ.DAT IS COMPLETE: LAST STEP IS ALMOST 5 (FINAL POINT OF SMD)
@@ -49,7 +49,7 @@ for(file in inputFiles){
 		dataf=cbind(dataf,shiftMinimum(prov,minValue))
 	}	
 }
-#times of the simulation (first column of any jarz.dat file --> from 2.5 to 5)
+#times of the simulation (first column of any duck.dat file --> from 2.5 to 5)
 times=r[,1]
 
 #now lets get the maximum work on all SMD curves

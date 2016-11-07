@@ -10,7 +10,7 @@ set nu=$nustart
 sed 's/temp0=300.0/temp0=325.0/' jarz.in > jarz_325K.in
 while ($nu <= $nuend)
 	if ($temp == "300K") then
-		set dir = JAR_$nu
+		set dir = DUCK_$nu
 		mkdir $dir
 		sed 's/ZZ/'$nu'/g' ../jar_template_gpu.sh > ./${dir}/jar_${nu}.sh
 		if ($nu == 0) then

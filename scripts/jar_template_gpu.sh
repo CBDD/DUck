@@ -1,11 +1,11 @@
 
  pmemd.cuda -O \
-                           -i ../jarz.in \
-                           -o jar_ZZ.oout \
+                           -i ../duck.in \
+                           -o duck_ZZ.out \
                            -p ../lib/system_solv.prmtop \
                            -c ../mdZZ.rst \
-                           -r jar_ZZ.rst \
-                           -x jar_ZZ.nc \
-                           -e jar_ZZ.ene \
+                           -r duck_ZZ.rst \
+                           -x duck_ZZ.nc \
+                           -e duck_ZZ.ene \
                            -ref ../lib/system_solv.prmcrd
-gzip jar_ZZ.ene
+gzip duck_ZZ.ene

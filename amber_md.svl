@@ -160,7 +160,7 @@ local function writeJarz[path,nRes,options]
 	local currentDir= cd [];
 	cd path;
 	
-	local fh=fopenw tok_cat['jarz.in'];
+	local fh=fopenw tok_cat['duck.in'];
 	
 	fwrite[fh,' &cntrl\n'];
 	fwrite[fh,'ntx = 5, irest=1,\n'];
@@ -175,14 +175,14 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'/\n'];
 	fwrite[fh,'&wt type=\'DUMPFREQ\', istep1=50 /\n'];
 	fwrite[fh,'&wt type=\'END\'   /\n'];
-	fwrite[fh,'DISANG=../dist_jarz.rst\n'];
-	fwrite[fh,'DUMPAVE=jarz.dat\n'];
+	fwrite[fh,'DISANG=../dist_duck.rst\n'];
+	fwrite[fh,'DUMPAVE=duck.dat\n'];
 	fwrite[fh,'LISTIN=POUT\n'];
 	fwrite[fh,'LISTOUT=POUT\n'];
 	fclose fh;
 	
 	
-	fh=fopenw tok_cat['jarz_325K.in'];
+	fh=fopenw tok_cat['duck_325K.in'];
 	
 	fwrite[fh,' &cntrl\n'];
 	fwrite[fh,'ntx = 5, irest=1,\n'];
@@ -197,8 +197,8 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'/\n'];
 	fwrite[fh,'&wt type=\'DUMPFREQ\', istep1=50 /\n'];
 	fwrite[fh,'&wt type=\'END\'   /\n'];
-	fwrite[fh,'DISANG=../dist_jarz.rst\n'];
-	fwrite[fh,'DUMPAVE=jarz.dat\n'];
+	fwrite[fh,'DISANG=../dist_duck.rst\n'];
+	fwrite[fh,'DUMPAVE=duck.dat\n'];
 	fwrite[fh,'LISTIN=POUT\n'];
 	fwrite[fh,'LISTOUT=POUT\n'];
 	fclose fh;
@@ -272,9 +272,9 @@ local function writeJarzRestraints[path,atomIndices,options]
 	local aid;
 
 	
-	local fh=fopenw tok_cat['dist_jarz.rst'];
+	local fh=fopenw tok_cat['dist_duck.rst'];
 
-	// sample format of the dist_jarz.rst to be produced
+	// sample format of the dist_duck.rst to be produced
 	// =================================================
 	//&rst iat=-1,-1,
 	//  r2=2.50, rk2=50.0, r2a=5.50,

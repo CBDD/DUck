@@ -7,7 +7,7 @@ function writeMDShell_Workstation;
 function writeAmberLaunchScripts_Workstation;
 function writeEquilibrationQueue;
 
-// write Basic shell scripts for running the whole thing on a GPU submit_jarz_gpu_Workstation
+// write Basic shell scripts for running the whole thing on a GPU submit_duck_gpu_Workstation
 global function writeAmberLaunchScripts_Workstation options
 	writeEquilibrationWorkstation[];
 	local ns=1;
@@ -95,7 +95,7 @@ global function writeEquilibrationQueue[options]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'csh ../submit_jarz_gpu.csh 0 0 300K\n'];
+	fwrite[fh,'csh ../submit_duck_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'qsub md1.q\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -148,14 +148,14 @@ global function writeMDQueue[number,options]
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];
-	  fwrite[fh,'csh ../submit_jarz_gpu.csh 0 1 325K\n'];
-	  fwrite[fh,'csh ../submit_jarz_gpu.csh 1 1 300K\n'];
+	  fwrite[fh,'csh ../submit_duck_gpu.csh 0 1 325K\n'];
+	  fwrite[fh,'csh ../submit_duck_gpu.csh 1 1 300K\n'];
 	else 
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
 	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}'];
 	  //fwrite[fh,'qsub md{}.q\n',number+5];
-	  fwrite[fh,'csh ../submit_jarz_gpu.csh {} {} 300K\n',number,number];
-	  fwrite[fh,'csh ../submit_jarz_gpu.csh {} {} 325K\n',number,number];
+	  fwrite[fh,'csh ../submit_duck_gpu.csh {} {} 300K\n',number,number];
+	  fwrite[fh,'csh ../submit_duck_gpu.csh {} {} 325K\n',number,number];
 	endif
 		
 	fwrite[fh,'qsub md{}.q\n',number+1];
@@ -175,8 +175,8 @@ global function writeEquilibrationWorkstation[]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'chmod +x ../launch_jarz_gpu_Workstation.sh; ../launch_jarz_gpu_Workstation.sh 0 0 300K\n'];
-	//fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 0 325K\n'];
+	fwrite[fh,'chmod +x ../launch_duck_gpu_Workstation.sh; ../launch_duck_gpu_Workstation.sh 0 0 300K\n'];
+	//fwrite[fh,'../launch_duck_gpu_Workstation.sh 0 0 325K\n'];
 	fwrite[fh,'chmod +x md1.sh; ./md1.sh\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -206,7 +206,7 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 0 300K\n'];
+	fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 0 0 300K\n'];
 	fwrite[fh,'mnsubmit md1.q\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -242,11 +242,11 @@ global function writeMDShell_Workstation[number,options]
 //	fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 //	fwrite[fh,'done\n'];
 	if number==1 then
-		fwrite[fh,'../launch_jarz_gpu_Workstation.sh 0 1 325K\n'];
-		fwrite[fh,'../launch_jarz_gpu_Workstation.sh 1 1 300K\n'];
+		fwrite[fh,'../launch_duck_gpu_Workstation.sh 0 1 325K\n'];
+		fwrite[fh,'../launch_duck_gpu_Workstation.sh 1 1 300K\n'];
 	else 
-		fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 300K\n',number,number];
-		fwrite[fh,'../launch_jarz_gpu_Workstation.sh {} {} 325K\n',number,number];
+		fwrite[fh,'../launch_duck_gpu_Workstation.sh {} {} 300K\n',number,number];
+		fwrite[fh,'../launch_duck_gpu_Workstation.sh {} {} 325K\n',number,number];
 	endif
 	fwrite[fh,'wqb=`Rscript ../getWqbValues.R`\n'];
 	fwrite[fh,'echo "$wqb" > wqb.txt\n'];
@@ -289,8 +289,8 @@ global function writeMDQueue_MINO[number,options]
 	  fwrite[fh,'@ i = $i + 1 \n'];
 	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 	  fwrite[fh,'end\n'];
-          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 1 1 300K\n'];
-          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh 0 1 325K\n'];
+          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 1 1 300K\n'];
+          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 0 1 325K\n'];
 	else 
 	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
 	  fwrite[fh,'set i = {}\n',number-1];
@@ -298,8 +298,8 @@ global function writeMDQueue_MINO[number,options]
 	  fwrite[fh,'@ i = $i + 1 \n'];
 	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 	  fwrite[fh,'end\n'];
-          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh {} {} 300K\n',number,number];
-          fwrite[fh,'csh ../submit_jarz_gpu_MINO.csh {} {} 325K\n',number,number];
+          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh {} {} 300K\n',number,number];
+          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh {} {} 325K\n',number,number];
 	endif
         fwrite[fh,'mnsubmit md{}.q\n',number+1];
 	fwrite[fh,'exit\n'];
