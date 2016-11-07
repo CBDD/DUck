@@ -336,6 +336,13 @@ local function startDB[options,suppFFParams]
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
+
+        if options.queue_IN === 'Minotauro' then
+        	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
+        endif
+        if options.queue_IN === 'Marc' then
+                rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MARC.csh'], 'submit_duck_smd_gpu.csh'];
+        endif
 	
 	
 	
@@ -603,7 +610,7 @@ global function DuckPanel opt
     FFPATH = tok_cat [ JPATH , '/tleap'];
     if MOE_BATCH then return[]; endif
     if second task_fork[] <> 'child' then return; endif
-    task_settitle[-1,'Duck Configuration'];
+    task_settitle[-1,'DUck Configuration'];
     //if WindowShow [WINDOW_NAME,1] then return; endif
 
 	// create the main panel
@@ -634,7 +641,7 @@ global function DuckPanel opt
 	    flushLeft	: 1,
 	    margin	: 1,
 	    Label	: [ text:
-		'Dialog allowing to create Duck input files and topologies of\n'
+		'Dialog allowing to create DUck input files and topologies of\n'
 		'the system using AmberFF and Merck Parm@Frosst parameters'
 	    ]
 	],
@@ -907,7 +914,7 @@ global function DuckPanel opt
 			//  startMD[ligand,md_options,suppFFParams];
 			//endif
 		else
-			Warning 'You did not select the receptor atom used to define the reaction coordinate of Duck. Please click on the atom you want to investigate';
+			Warning 'You did not select the receptor atom used to define the reaction coordinate of DUck. Please click on the atom you want to investigate';
 
 		endif
 		

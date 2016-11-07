@@ -6,6 +6,9 @@ function writeMDQueue;
 function writeMDShell_Workstation;
 function writeAmberLaunchScripts_Workstation;
 function writeEquilibrationQueue;
+function writeDUCKSMDQueue_MINO;
+function writeDUCKSMDQueue;
+function writeDUCKSMDQueue_Workstation;
 
 // write Basic shell scripts for running the whole thing on a GPU submit_duck_gpu_Workstation
 global function writeAmberLaunchScripts_Workstation options
@@ -15,6 +18,7 @@ global function writeAmberLaunchScripts_Workstation options
         writeMDShell_Workstation[ns,options];
         ns=ns+1;
     endloop
+	writeDUCKSMDQueue_Workstation options;
 endfunction
 
 global function launchAmber_Workstation options
@@ -30,6 +34,7 @@ global function writeAmberLaunchScripts options
 	    writeMDQueue[ns,options];
 	    ns=ns+1;
 	endloop
+	writeDUCKSMDQueue options;
 endfunction
 
 global function launchAmber options
@@ -46,6 +51,7 @@ global function writeAmberLaunchScripts_MINO options
         writeMDQueue_MINO[ns,options];
         ns=ns+1;
     endloop
+	writeDUCKSMDQueue_MINO options;
 endfunction
 
 global function launchAmber_MINO options
@@ -95,7 +101,7 @@ global function writeEquilibrationQueue[options]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'csh ../submit_duck_gpu.csh 0 0 300K\n'];
+	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'qsub md1.q\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -148,14 +154,14 @@ global function writeMDQueue[number,options]
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];
-	  fwrite[fh,'csh ../submit_duck_gpu.csh 0 1 325K\n'];
-	  fwrite[fh,'csh ../submit_duck_gpu.csh 1 1 300K\n'];
+	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
+	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
 	else 
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
 	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}'];
 	  //fwrite[fh,'qsub md{}.q\n',number+5];
-	  fwrite[fh,'csh ../submit_duck_gpu.csh {} {} 300K\n',number,number];
-	  fwrite[fh,'csh ../submit_duck_gpu.csh {} {} 325K\n',number,number];
+	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 300K\n',number,number];
+	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 325K\n',number,number];
 	endif
 		
 	fwrite[fh,'qsub md{}.q\n',number+1];
@@ -206,7 +212,7 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
-	fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 0 0 300K\n'];
+	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'mnsubmit md1.q\n'];
 	fwrite[fh,'exit\n'];
 	fclose fh;
@@ -289,8 +295,8 @@ global function writeMDQueue_MINO[number,options]
 	  fwrite[fh,'@ i = $i + 1 \n'];
 	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 	  fwrite[fh,'end\n'];
-          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 1 1 300K\n'];
-          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh 0 1 325K\n'];
+          fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
+          fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
 	else 
 	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
 	  fwrite[fh,'set i = {}\n',number-1];
@@ -298,13 +304,143 @@ global function writeMDQueue_MINO[number,options]
 	  fwrite[fh,'@ i = $i + 1 \n'];
 	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
 	  fwrite[fh,'end\n'];
-          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh {} {} 300K\n',number,number];
-          fwrite[fh,'csh ../submit_duck_gpu_MINO.csh {} {} 325K\n',number,number];
+          fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 300K\n',number,number];
+          fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 325K\n',number,number];
 	endif
         fwrite[fh,'mnsubmit md{}.q\n',number+1];
 	fwrite[fh,'exit\n'];
 	fclose fh;	
 endfunction
+
+global function writeDUCKSMDQueue_MINO[options]
+	local currentDir= cd [];
+        local fh=fopenw ['duck_template_gpu.q'];
+        fwrite[fh,'#!/bin/tcsh\n'];
+        fwrite[fh,'# @ job_name = duck_gpu            \n'];
+        fwrite[fh,'# @ initialdir = .                 \n'];
+        fwrite[fh,'# @ wall_clock_limit = 10:00:00    \n'];
+        fwrite[fh,'# @ output = duck_ZZ.q.o           \n'];
+        fwrite[fh,'# @ error = duck_ZZ.q.e            \n'];
+        fwrite[fh,'# @ total_tasks = 1                \n'];
+        fwrite[fh,'# @ tasks_per_node = 1             \n'];
+        fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
+        fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
+        fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
+        fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'exit\n'];
+        fclose fh;
+
+	local fh2=fopenw ['duck_template_gpu_325K.q'];
+        fwrite[fh2,'#!/bin/tcsh\n'];
+        fwrite[fh2,'# @ job_name = duck_gpu_325K       \n'];
+        fwrite[fh2,'# @ initialdir = .                 \n'];
+        fwrite[fh2,'# @ wall_clock_limit = 10:00:00    \n'];
+        fwrite[fh2,'# @ output = duck_ZZ.q.o           \n'];
+        fwrite[fh2,'# @ error = duck_ZZ.q.e            \n'];
+        fwrite[fh2,'# @ total_tasks = 1                \n'];
+        fwrite[fh2,'# @ tasks_per_node = 1             \n'];
+        fwrite[fh2,'# @ gpus_per_node = 1              \n\n'];
+        fwrite[fh2,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
+        fwrite[fh2,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
+        fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'exit\n'];
+        fclose fh2;
+
+        cd currentDir;
+endfunction
+
+global function writeDUCKSMDQueue[options]
+        local currentDir= cd [];
+        local fh=fopenw ['duck_template_gpu.q'];
+        fwrite[fh,'#!/bin/bash\n'];
+        fwrite[fh,'###########################################################\n'];
+        fwrite[fh,'# USAGE: MARC                                             #\n'];
+        fwrite[fh,'# qsub queue_whatever.csh to submit a job                 #\n'];
+        fwrite[fh,'# qstat to monitorize your jobs                           #\n'];
+        fwrite[fh,'# qstat -f to see an overview of the queues               #\n'];
+        fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
+        fwrite[fh,'###########################################################\n'];
+        fwrite[fh,'#$ -N duck_gpu   # The name of the job, can be whatever makes sense to you\n'];
+        fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
+        fwrite[fh,'#$ -cwd  # The batchsystem should use the current directory as working directory.\n'];
+        fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
+        fwrite[fh,'#$ -o duck_ZZ.q.o             # Redirect output stream to this file.\n'];
+        fwrite[fh,'#$ -e duck_ZZ.q.e             # Redirect error stream to this file.\n'];
+        fwrite[fh,'#$ -l h_rt=10:00:00 # Time limit\n'];
+        fwrite[fh,'#$ -l gpu=1\n'];
+//      fwrite[fh,'#$ -l h=\'syrah|garnatxa\'\n'];
+        fwrite[fh,'### TO CHECK IF WE DEAL WITH A TITAN GPU ###################\n'];
+        fwrite[fh,'smitool=`which nvidia-smi`\n'];
+        fwrite[fh,'type=`$smitool -L | grep TITAN | cut -f5 -d" " | tail -n 1`\n'];
+        fwrite[fh,'if [ "$type" == "TITAN" ]; then\n'];
+        fwrite[fh,'export AMBERHOME=/data/SOFT/amber12_TITAN\n'];
+        fwrite[fh,'export LD_LIBRARY_PATH=/usr/local/cuda-5.0/lib64\n'];
+        fwrite[fh,'export PATH=/data/SOFT/amber12_TITAN/bin:${}PATH{}\n','{','}'];
+        fwrite[fh,'else\n'];
+        fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
+        fwrite[fh,'fi\n'];
+        fwrite[fh,'#############################################################\n'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'exit\n'];
+        fclose fh;
+
+        local fh2=fopenw ['duck_template_gpu_325K.q'];
+        fwrite[fh2,'#!/bin/bash\n'];
+        fwrite[fh2,'###########################################################\n'];
+        fwrite[fh2,'# USAGE: MARC                                             #\n'];
+        fwrite[fh2,'# qsub queue_whatever.csh to submit a job                 #\n'];
+        fwrite[fh2,'# qstat to monitorize your jobs                           #\n'];
+        fwrite[fh2,'# qstat -f to see an overview of the queues               #\n'];
+        fwrite[fh2,'# qdel "jobid" to delete a job                            #\n'];
+        fwrite[fh2,'###########################################################\n'];
+        fwrite[fh2,'#$ -N duck_gpu   # The name of the job, can be whatever makes sense to you\n'];
+        fwrite[fh2,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
+        fwrite[fh2,'#$ -cwd  # The batchsystem should use the current directory as working directory.\n'];
+        fwrite[fh2,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
+        fwrite[fh2,'#$ -o duck_ZZ.q.o             # Redirect output stream to this file.\n'];
+        fwrite[fh2,'#$ -e duck_ZZ.q.e             # Redirect error stream to this file.\n'];
+        fwrite[fh2,'#$ -l h_rt=10:00:00 # Time limit\n'];
+        fwrite[fh2,'#$ -l gpu=1\n'];
+//      fwrite[fh2,'#$ -l h=\'syrah|garnatxa\'\n'];
+        fwrite[fh2,'### TO CHECK IF WE DEAL WITH A TITAN GPU ###################\n'];
+        fwrite[fh2,'smitool=`which nvidia-smi`\n'];
+        fwrite[fh2,'type=`$smitool -L | grep TITAN | cut -f5 -d" " | tail -n 1`\n'];
+        fwrite[fh2,'if [ "$type" == "TITAN" ]; then\n'];
+        fwrite[fh2,'export AMBERHOME=/data/SOFT/amber12_TITAN\n'];
+        fwrite[fh2,'export LD_LIBRARY_PATH=/usr/local/cuda-5.0/lib64\n'];
+        fwrite[fh2,'export PATH=/data/SOFT/amber12_TITAN/bin:${}PATH{}\n','{','}'];
+        fwrite[fh2,'else\n'];
+        fwrite[fh2,'module load amber12 cuda50 mpich2gnu44\n'];
+        fwrite[fh2,'fi\n'];
+        fwrite[fh2,'#############################################################\n'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'exit\n'];
+        fclose fh2;
+
+	cd currentDir;
+endfunction
+
+global function writeDUCKSMDQueue_Workstation[options]
+        local currentDir= cd [];
+        local fh=fopenw ['duck_template_gpu.sh'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'exit\n'];
+        fclose fh;
+
+        local fh2=fopenw ['duck_template_gpu_325K.sh'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
+        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'exit\n'];
+        fclose fh2;
+
+        cd currentDir;
+endfunction
+
 
 
 //SRC MINOTAURO QUEUES END

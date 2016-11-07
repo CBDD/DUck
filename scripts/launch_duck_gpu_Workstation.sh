@@ -12,24 +12,24 @@ do
 	then
 		dir="DUCK_$nu";
 		mkdir $dir;
-		sed 's/ZZ/'$nu'/g' ../jar_template_gpu.sh > ./${dir}/jar_${nu}.sh;
+		sed 's/ZZ/'$nu'/g' ../duck_template_gpu.sh > ./${dir}/duck_${nu}.sh;
 		if [ ${nu} -eq 0 ]
 		then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/jar_${nu}.sh > tmp
-			mv tmp ./${dir}/jar_${nu}.sh
+			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_${nu}.sh > tmp
+			mv tmp ./${dir}/duck_${nu}.sh
 		fi
-		cd $dir; chmod +x jar_${nu}.sh; ./jar_${nu}.sh; cd ..;
+		cd $dir; chmod +x duck_${nu}.sh; ./duck_${nu}.sh; cd ..;
 	elif [ $ARG3 = "325K" ];
 		then
 		dir="DUCK_325K_$nu";
 		mkdir $dir;
-		sed 's/ZZ/'$nu'/g' ../jar_template_325K_gpu.sh > ./${dir}/jar_325K_${nu}.sh;
+		sed 's/ZZ/'$nu'/g' ../duck_template_gpu_325K.sh > ./${dir}/duck_325K_${nu}.sh;
 		if [ ${nu} -eq 0 ]
 		then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/jar_325K_${nu}.sh > tmp
-			mv tmp ./${dir}/jar_325K_${nu}.sh
+			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_325K_${nu}.sh > tmp
+			mv tmp ./${dir}/duck_325K_${nu}.sh
 		fi
-		cd $dir; chmod +x jar_325K_${nu}.sh; ./jar_325K_${nu}.sh; cd ..;
+		cd $dir; chmod +x duck_325K_${nu}.sh; ./duck_325K_${nu}.sh; cd ..;
 	fi
 
 	
