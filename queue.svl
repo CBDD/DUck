@@ -75,7 +75,7 @@ global function writeEquilibrationQueue[options]
 	fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
 	fwrite[fh,'###########################################################\n'];
 
-	fwrite[fh,'#$ -N jocs_equil          # The name of the job, can be whatever makes sense to you\n'];
+	fwrite[fh,'#$ -N duck_equil          # The name of the job, can be whatever makes sense to you\n'];
 	fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
 	fwrite[fh,'#$ -cwd                 # The batchsystem should use the current directory as working directory.\n'];
 	fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
@@ -124,7 +124,7 @@ global function writeMDQueue[number,options]
 	fwrite[fh,'# qstat -f to see an overview of the queues               #\n'];
 	fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
 	fwrite[fh,'###########################################################\n'];
-	fwrite[fh,'#$ -N md{}_system          # The name of the job, can be whatever makes sense to you\n',number];
+	fwrite[fh,'#$ -N duck_md{}          # The name of the job, can be whatever makes sense to you\n',number];
 	fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
 	fwrite[fh,'#$ -cwd                 # The batchsystem should use the current directory as working directory.\n'];
 	fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
@@ -194,7 +194,7 @@ global function writeEquilibrationQueue_MINO[options]
 	local currentDir= cd [];
 	local fh=fopenw ['equil.q'];
 	fwrite[fh,'#!/bin/tcsh\n'];
-	fwrite[fh,'# @ job_name = jocs_equil          \n'];
+	fwrite[fh,'# @ job_name = duck_equil          \n'];
 	fwrite[fh,'# @ initialdir = .                 \n'];
 	fwrite[fh,'# @ wall_clock_limit = 10:00:00    \n'];
 	fwrite[fh,'# @ output = equil.q.o             \n'];
@@ -267,7 +267,7 @@ global function writeMDQueue_MINO[number,options]
 	local currentDir= cd [];
 	local fh=fopenw [tok_cat['md',totok[number],'.q']];
 	fwrite[fh,'#!/bin/tcsh\n'];
-	fwrite[fh,'# @ job_name = md{}_system         \n'];
+	fwrite[fh,'# @ job_name = duck_md{}           \n'];
 	fwrite[fh,'# @ initialdir = .                 \n'];
 	fwrite[fh,'# @ wall_clock_limit = 20:00:00    \n'];
 	fwrite[fh,'# @ output = md{}.q.o              \n'];
@@ -316,7 +316,7 @@ global function writeDUCKSMDQueue_MINO[options]
 	local currentDir= cd [];
         local fh=fopenw ['duck_template_gpu.q'];
         fwrite[fh,'#!/bin/tcsh\n'];
-        fwrite[fh,'# @ job_name = duck_gpu            \n'];
+        fwrite[fh,'# @ job_name = duck_smdZZ          \n'];
         fwrite[fh,'# @ initialdir = .                 \n'];
         fwrite[fh,'# @ wall_clock_limit = 10:00:00    \n'];
         fwrite[fh,'# @ output = duck_ZZ.q.o           \n'];
@@ -333,7 +333,7 @@ global function writeDUCKSMDQueue_MINO[options]
 
 	local fh2=fopenw ['duck_template_gpu_325K.q'];
         fwrite[fh2,'#!/bin/tcsh\n'];
-        fwrite[fh2,'# @ job_name = duck_gpu_325K       \n'];
+        fwrite[fh2,'# @ job_name = duck_smdZZ_325K       \n'];
         fwrite[fh2,'# @ initialdir = .                 \n'];
         fwrite[fh2,'# @ wall_clock_limit = 10:00:00    \n'];
         fwrite[fh2,'# @ output = duck_ZZ.q.o           \n'];
@@ -362,7 +362,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh,'# qstat -f to see an overview of the queues               #\n'];
         fwrite[fh,'# qdel "jobid" to delete a job                            #\n'];
         fwrite[fh,'###########################################################\n'];
-        fwrite[fh,'#$ -N duck_gpu   # The name of the job, can be whatever makes sense to you\n'];
+        fwrite[fh,'#$ -N duck_smdZZ   # The name of the job, can be whatever makes sense to you\n'];
         fwrite[fh,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
         fwrite[fh,'#$ -cwd  # The batchsystem should use the current directory as working directory.\n'];
         fwrite[fh,'#$ -q gpu            # Queue name where the job should be placed into.\n'];
@@ -396,7 +396,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh2,'# qstat -f to see an overview of the queues               #\n'];
         fwrite[fh2,'# qdel "jobid" to delete a job                            #\n'];
         fwrite[fh2,'###########################################################\n'];
-        fwrite[fh2,'#$ -N duck_gpu   # The name of the job, can be whatever makes sense to you\n'];
+        fwrite[fh2,'#$ -N duck_smdZZ_325K   # The name of the job, can be whatever makes sense to you\n'];
         fwrite[fh2,'#$ -S /bin/bash          # Force sh if not Sun Grid Engine default shell\n'];
         fwrite[fh2,'#$ -cwd  # The batchsystem should use the current directory as working directory.\n'];
         fwrite[fh2,'#$ -q gpu            # Queue name where the job should be placed into.\n'];

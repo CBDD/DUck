@@ -29,7 +29,7 @@ dataf=c()
 #read all currently created duck.dat output files to calculate current running Wqb
 for(file in inputFiles){
 	r=read.table(file)
-	#CHECK IF JARZ.DAT IS COMPLETE: LAST STEP IS ALMOST 5 (FINAL POINT OF SMD)
+	#CHECK IF duck.dat IS COMPLETE: LAST STEP IS ALMOST 5 (FINAL POINT OF SMD)
 	laststep_r=r[,1][dim(r)[1]]
 	if (abs(laststep_r-5.0) > 1e-3){
 		if(plotornot == "showerrors"){
