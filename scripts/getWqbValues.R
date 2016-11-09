@@ -1,6 +1,6 @@
 ##############################
 # getWqbValues.R script
-# Version 14/10/16
+# Version 09/11/16
 # Rscript
 ##############################
 #read arguments (for plotting only after the last step) --> if "plot", it will make a pdf plot and a wqb_final.txt file
@@ -59,8 +59,8 @@ for (d in seq(dim(dataf)[2])){
 	#maximum has to be on second half, after minimum (to avoid maximum in the beginning)
 	maxwork=c(maxwork,max(dataf[,d][2501:5000]))	
 }
-
-
+#check if maxwork is null --> not even 1 duck.dat finished
+if (is.null(maxwork)){cat("100\n");quit()}
 #get the minimum value among each replica maximum work --> wqb
 wqb=round(min(maxwork),2)
 #if wqb is lower than 0 (negative slope), set wqb to 0
