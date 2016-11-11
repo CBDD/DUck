@@ -154,7 +154,7 @@ local function writeDoLeap[ligand,dirName,options,suppFFParams,lenRec,solvation]
 	    fh=fopenw twrite['{}/doleaped.leap',dirName];	//open file handle
 	endif
 	print options.ffParams;
-	fwrite [fh,'source oldFF/leaprc.ff99SBildn\n'];
+	fwrite [fh,'source leaprc.ff99SBildn\n'];
 	fwrite [fh,'loadOff ions94.lib\n'];
 
 	if length options.ffParams[1]>0 then
