@@ -1,4 +1,4 @@
-/#svl
+#svl
 //	duck_cli.svl : Command Line for setting up a dynamic undocking calculation
 //  04 Feb 2017 (PS) Adapted for command line usage 
 //	
@@ -247,6 +247,15 @@ local function executeLeap [path,leapfile]
 	
 endfunction
 
+local function get_HB_atomKey[res_ID,atom_Name]
+        local res_list=uniq cat aResidue [Atoms[]];
+        local mask_res=cat rUID [uniq cat aResidue [Atoms[]]] == res_ID;
+        local sel_res=res_list | mask_res;
+        local mask_atom=cat aName[cat rAtoms[sel_res]] == atom_Name;
+        local sel_atoms=cat rAtoms[sel_res];
+        local finalatomkey=sel_atoms | mask_atom;
+        return finalatomkey;
+endfunction
 
 
 //local function DEPR_selectAtomsFromReceptorAndLigandDB[selAtomPosition, options]
@@ -301,7 +310,11 @@ local function startDB[options,suppFFParams]
 
 	local currentDir=cd '.';
 	
-	local selAtomPosition=aPos SelectedAtoms[];
+//SRC changes to get atom key of the HBond residue	
+	local selected_AtomKey=get_HB_atomKey[options.HB_resID,options.HB_atomName];
+        print [selected_AtomKey];
+//SRC end
+	local selAtomPosition=aPos selected_AtomKey;
 	local tmpName='tmp_receptor.moe';
 	SaveAs tmpName;
 	
@@ -597,7 +610,7 @@ global function runDuckCLI opt
 	Open opt.moefile;
 
 	local suppFFParams=loadSuppFFParams[];
-	local md_options=['ffParams':[ [], 0 ], 'queue_IN':'Marc', 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':6.0,'wqb_maxruns':50];
+	local md_options=['ffParams':[ [], 0 ], 'queue_IN':'Marc', 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':6.0,'wqb_maxruns':50,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
 	startDB[md_options,suppFFParams];		
     
 endfunction
