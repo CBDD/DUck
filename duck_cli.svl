@@ -371,6 +371,8 @@ local function startDB[options,suppFFParams]
 //		writeAmberLaunchScripts options;
 //	endif
 ////SRC MINO queue end
+	local molCount_mopacError=0; //SRC define for MOPAC
+	local fh_MOPAC_created=0; //SRC define for MOPAC
 	for entry in entries loop
 		Open tmpName;
 		local msgKey=Message[0,tok_cat['Preparing simulations for molecule ',totok molCount]];
@@ -396,14 +398,37 @@ local function startDB[options,suppFFParams]
 		local ligResidues=uniq cat aResidue oAtoms ligand;
 		local el;
 
-		for el in ligResidues loop
-			rSetName[el,'LIG'];
-			local ligAtoms=cat oAtoms el;
+	        for el in ligResidues loop
+                        rSetName[el,'LIG'];
+                        local ligAtoms=cat oAtoms el;
 
-			
-			local [q, pos] = PartialCharge [ligAtoms, 'AM1-BCC'];
-			aSetCharge [ligAtoms,q];
-		endloop
+
+//SRC MOPAC ERROR
+                	local flag_mopacError = 0;
+			local [result,return_code] = task_call['PartialCharge',[ligAtoms, 'AM1-BCC'],[errmsg:'ignore']];
+			if return_code == 'error' then
+				flag_mopacError=1;
+			else
+				local q=first result;
+				aSetCharge [ligAtoms,q];
+			endif	
+                endloop
+
+                if flag_mopacError == 1 then
+			print 'Error calculating charges, skipping ligand.';
+                        if molCount_mopacError == 0 then
+				fh_MOPAC_created=1;
+                                local fh_MOPAC;
+                                fh_MOPAC = fopenw twrite['DUCK_charge_errors.txt','./'];   //open file handle
+                                molCount_mopacError = 1;
+                        endif;
+                        fwrite [fh_MOPAC,'LIG_target_{}\n',molCount];
+                        molCount = molCount+1;
+                        Close[force:1];
+                        Message[msgKey,[]];
+                        continue;
+                endif;
+//SRC MOPAC ERROR end	
 		
 		local fileList=fbase ftail flist '.';
 		//create folder name for writing simulation parameters
@@ -454,6 +479,9 @@ local function startDB[options,suppFFParams]
 		Message[msgKey,[]];	
 		
 	endloop
+	if fh_MOPAC_created == 1 then
+		fclose[fh_MOPAC];
+	endif;
 	db_Close mdb;
 endfunction
 
@@ -610,10 +638,13 @@ global function runDuckCLI opt
 	Open opt.moefile;
 
 	local suppFFParams=loadSuppFFParams[];
-	local md_options=['ffParams':[ [], 0 ], 'queue_IN':'Marc', 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':6.0,'wqb_maxruns':50,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
+	local md_options=['ffParams':[ [], 0 ], 'queue_IN':opt.queue, 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':opt.wqbThreshold,'wqb_maxruns':opt.wqbMaxRuns,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
 	startDB[md_options,suppFFParams];		
     
 endfunction
+
+//HOW TO EXECUTE:
+//moebatch -load duck_cli.svl -exec runDuckCLI[moefile:'rec.moe',mdbfile:'small.mdb',queue:'Marc', wqbThreshold:6.0,wqbMaxRuns:10,HB_resID:66,HB_atomName:'N'];
 
 #eof
 
