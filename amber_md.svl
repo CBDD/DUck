@@ -135,7 +135,7 @@ local function writeMD[path,nRes,temperature,simlength]
 fwrite[fh,'&cntrl\n'];
 	fwrite[fh,'ntx=5, irest=1,\n'];
 	fwrite[fh,'iwrap=1,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwv=0, ntwe=0, ntwr=-500000, ioutfm=1,\n'];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntc=2, ntf=2,\n'];
 	fwrite[fh,'ntb=1, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, gamma_ln=4.0, ig=-1,\n'];

@@ -152,7 +152,7 @@ global function writeMDQueue[number,options]
         fwrite[fh,'fi\n'];
         fwrite[fh,'###################################################\n'];
 	if number==1 then
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 //	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];// SRC deprecated
 	  fwrite[fh,'#############################################################\n'];
           fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
@@ -165,7 +165,7 @@ global function writeMDQueue[number,options]
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
 	else 
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
 //	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}']; // SRC deprecated
 	  //fwrite[fh,'qsub md{}.q\n',number+5];
 	  fwrite[fh,'#############################################################\n'];
@@ -305,7 +305,7 @@ global function writeMDQueue_MINO[number,options]
 	fwrite[fh,'###################################################\n'];
 
 	if number==1 then
-	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 //	  fwrite[fh,'set i = 0\n'];
 //SRC	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
 //depre	  fwrite[fh,'@ i = $i + 1 \n'];
@@ -322,7 +322,7 @@ global function writeMDQueue_MINO[number,options]
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
 	else 
-	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
 //SRC	  fwrite[fh,'set i = {}\n',number-1];
 //depre	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
 //cated	  fwrite[fh,'@ i = $i + 1 \n'];
