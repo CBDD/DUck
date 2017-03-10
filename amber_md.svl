@@ -100,7 +100,27 @@ local function writeThirdEquilibration[path,nRes,simlength]
 	local currentDir= cd [];
 	cd path;
 	
-	local fh=fopenw tok_cat['4_eq.in'];
+	local fhA=fopenw tok_cat['4a_eq.in'];
+
+        fwrite[fhA,'&cntrl\n'];
+        fwrite[fhA,'timlim=999999., imin=0,\n'];
+        fwrite[fhA,'ntx=5, irest=1,\n'];
+        fwrite[fhA,'iwrap=1,\n'];
+        fwrite[fhA,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
+        fwrite[fhA,'ntp=1, ntc=2, taup=2.0, \n'];
+        fwrite[fhA,'ntb=2, ntf=2, cut=9.0,\n'];
+        fwrite[fhA,'ntt=3, temp0=300.0, ig=-1,  gamma_ln=4.0,\n'];
+        fwrite[fhA,'nstlim=10000, dt=0.002,\n'];
+        fwrite[fhA,'ntr=1,\n'];
+        fwrite[fhA,'restraintmask=\':1-{} & !@H=\', \n',nRes];
+        fwrite[fhA,'restraint_wt=1.0,\n'];
+        fwrite[fhA,'nmropt=1,\n'];
+        fwrite[fhA,'&end\n'];
+        fwrite[fhA,'&wt type=\'END\' /\n'];
+        fwrite[fhA,'DISANG=dist_md.rst\n'];
+        fclose fhA;
+	
+	local fh=fopenw tok_cat['4b_eq.in'];
 	
 	fwrite[fh,'&cntrl\n'];
 	fwrite[fh,'timlim=999999., imin=0,\n'];
@@ -110,7 +130,7 @@ local function writeThirdEquilibration[path,nRes,simlength]
 	fwrite[fh,'ntp=1, ntc=2, taup=2.0, \n'];
 	fwrite[fh,'ntb=2, ntf=2, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, ig=-1,  gamma_ln=4.0,\n'];
-	fwrite[fh,'nstlim={}, dt=0.002,\n',round(simlength/2*1000000)];
+	fwrite[fh,'nstlim={}, dt=0.002,\n',round(simlength/2*1000000)-10000];
 	fwrite[fh,'ntr=1,\n'];
 	fwrite[fh,'restraintmask=\':1-{} & !@H=\', \n',nRes];
 	fwrite[fh,'restraint_wt=1.0,\n'];
@@ -169,7 +189,7 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'ntt=3, temp0=300.0, gamma_ln=4.0,\n'];
 	fwrite[fh,'nstlim={}, dt=0.002,\n',round(options.smd_length/2*1000000)];
 	fwrite[fh,'ntc=2, ntf=2, cut=9.0,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
 	fwrite[fh,'jar=1,\n'];
 	fwrite[fh,'ntr=1, restraintmask=\':1-{} & !@H=\', restraint_wt=1.0,\n',nRes];
 	fwrite[fh,'/\n'];
@@ -191,7 +211,7 @@ local function writeJarz[path,nRes,options]
 	fwrite[fh,'ntt=3, temp0=325.0, gamma_ln=4.0,\n'];
 	fwrite[fh,'nstlim={}, dt=0.002,\n',round(options.smd_length/2*1000000)];
 	fwrite[fh,'ntc=2, ntf=2, cut=9.0,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwe=1000, ntwr={}, ioutfm=1,\n',round(options.smd_length/2)*1000000];
 	fwrite[fh,'jar=1,\n'];
 	fwrite[fh,'ntr=1, restraintmask=\':1-{} & !@H=\', restraint_wt=1.0,\n',nRes];
 	fwrite[fh,'/\n'];

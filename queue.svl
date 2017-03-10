@@ -100,7 +100,8 @@ global function writeEquilibrationQueue[options]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'qsub md1.q\n'];
 	fwrite[fh,'exit\n'];
@@ -152,7 +153,7 @@ global function writeMDQueue[number,options]
         fwrite[fh,'fi\n'];
         fwrite[fh,'###################################################\n'];
 	if number==1 then
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 //	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];// SRC deprecated
 	  fwrite[fh,'#############################################################\n'];
           fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
@@ -196,7 +197,8 @@ global function writeEquilibrationWorkstation[]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'chmod +x ../launch_duck_gpu_Workstation.sh; ../launch_duck_gpu_Workstation.sh 0 0 300K\n'];
 	//fwrite[fh,'../launch_duck_gpu_Workstation.sh 0 0 325K\n'];
 	fwrite[fh,'chmod +x md1.sh; ./md1.sh\n'];
@@ -227,7 +229,8 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'mnsubmit md1.q\n'];
 	fwrite[fh,'exit\n'];
@@ -252,7 +255,7 @@ global function writeMDShell_Workstation[number,options]
     //    fwrite[fh,'###################################################\n'];
     //had the comment the previous block as this is not bash, but csh
 	if number==1 then
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	else
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
 	endif  
@@ -305,7 +308,7 @@ global function writeMDQueue_MINO[number,options]
 	fwrite[fh,'###################################################\n'];
 
 	if number==1 then
-	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 //	  fwrite[fh,'set i = 0\n'];
 //SRC	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
 //depre	  fwrite[fh,'@ i = $i + 1 \n'];
