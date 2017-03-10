@@ -39,7 +39,7 @@ local function writeFirstEquilibration[path,nRes]
 	fwrite[fh,'&cntrl\n'];
 	fwrite[fh,'timlim=999999., imin=0,\n'];
 	fwrite[fh,'ntx=1, \n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwv=0, ntwe=0, ntwr=50000, ioutfm=1,\n'];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntp=0, ntc=2,\n'];
 	fwrite[fh,'ntb=1, ntf=2, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=150, tempi=100, ig=-1, gamma_ln=4.0,\n'];
@@ -71,7 +71,7 @@ local function writeSecondEquilibration[path,nRes,temperature]
 	fwrite[fh,'&cntrl\n'];
 	fwrite[fh,'timlim=999999., imin=0,\n'];
 	fwrite[fh,'ntx=5, irest=1,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwv=0, ntwe=0, ntwr=50000, ioutfm=1,\n'];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntp=0, ntc=2,\n'];
 	fwrite[fh,'ntb=1, ntf=2, cut=9.0, \n'];
 	fwrite[fh,'ntt=3, temp0={}, ig=-1,  gamma_ln=4.0,\n',temperature];
@@ -106,7 +106,7 @@ local function writeThirdEquilibration[path,nRes,simlength]
 	fwrite[fh,'timlim=999999., imin=0,\n'];
 	fwrite[fh,'ntx=5, irest=1,\n'];
 	fwrite[fh,'iwrap=1,\n'];
-	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=5000, ntwv=0, ntwe=0, ntwr=50000, ioutfm=1,\n'];
+	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntp=1, ntc=2, taup=2.0, \n'];
 	fwrite[fh,'ntb=2, ntf=2, cut=9.0,\n'];
 	fwrite[fh,'ntt=3, temp0=300.0, ig=-1,  gamma_ln=4.0,\n'];
