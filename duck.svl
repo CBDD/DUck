@@ -331,10 +331,10 @@ local function startDB[options,suppFFParams]
 	//copy some important launch and analysis scripts 
 
 	JPATH = getenv 'MOE_SVL_LOAD';
-    SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
+    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
+	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
+	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 
         if options.queue_IN === 'Minotauro' then
         	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
@@ -757,7 +757,7 @@ global function DuckPanel opt
 		   			name : 'equilibration_length',
 		   			len : 5,
 					title: 'Equilibration Length (ns) :',
-					emptyText: '0.5',
+					emptyText: '1',
 					allowBlank: 0,
 					type:'real',
 					bubbleHelp:
@@ -923,7 +923,7 @@ global function DuckPanel opt
 	WindowSetData[wkey, ['smd_length':0.5]];
 	WindowSetData[wkey, ['smd_displ':2.5]];
 	//SRC WindowSetData[wkey, ['smd_cutoff':5.0]];
-	WindowSetData[wkey, ['equilibration_length':0.5]];
+	WindowSetData[wkey, ['equilibration_length':1]];
 	WindowSetData[wkey, ['md_length':0.5]];
 	WindowSetData[wkey, ['wqb_thresh':6.0]];
 	WindowSetData[wkey, ['wqb_maxruns':50]];

@@ -322,10 +322,10 @@ local function startDB[options,suppFFParams]
 	//copy some important launch and analysis scripts 
 
 	JPATH = getenv 'MOE_SVL_LOAD';
-    SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
+    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
+	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
+	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 
         if options.queue_IN === 'Minotauro' then
         	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
@@ -638,7 +638,7 @@ global function runDuckCLI opt
 	Open opt.moefile;
 
 	local suppFFParams=loadSuppFFParams[];
-	local md_options=['ffParams':[ [], 0 ], 'queue_IN':opt.queue, 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':0.5,'md_length':0.5,'wqb_thresh':opt.wqbThreshold,'wqb_maxruns':opt.wqbMaxRuns,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
+	local md_options=['ffParams':[ [], 0 ], 'queue_IN':opt.queue, 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':opt.wqbThreshold,'wqb_maxruns':opt.wqbMaxRuns,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
 	startDB[md_options,suppFFParams];		
     
 endfunction

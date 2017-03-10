@@ -155,7 +155,6 @@ global function writeMDQueue[number,options]
 	if number==1 then
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 //	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];// SRC deprecated
-	  fwrite[fh,'#############################################################\n'];
           fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
           fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < {}" | bc) -eq 1 ]; then\n',options.wqb_thresh];
           fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
@@ -169,7 +168,6 @@ global function writeMDQueue[number,options]
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
 //	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}']; // SRC deprecated
 	  //fwrite[fh,'qsub md{}.q\n',number+5];
-	  fwrite[fh,'#############################################################\n'];
           fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
           fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < {}" | bc) -eq 1 ]; then\n',options.wqb_thresh];
           fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
