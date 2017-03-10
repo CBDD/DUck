@@ -757,7 +757,7 @@ global function DuckPanel opt
 		   			name : 'equilibration_length',
 		   			len : 5,
 					title: 'Equilibration Length (ns) :',
-					emptyText: '1',
+					emptyText: '0.5',
 					allowBlank: 0,
 					type:'real',
 					bubbleHelp:
@@ -923,7 +923,7 @@ global function DuckPanel opt
 	WindowSetData[wkey, ['smd_length':0.5]];
 	WindowSetData[wkey, ['smd_displ':2.5]];
 	//SRC WindowSetData[wkey, ['smd_cutoff':5.0]];
-	WindowSetData[wkey, ['equilibration_length':1]];
+	WindowSetData[wkey, ['equilibration_length':0.5]];
 	WindowSetData[wkey, ['md_length':0.5]];
 	WindowSetData[wkey, ['wqb_thresh':6.0]];
 	WindowSetData[wkey, ['wqb_maxruns':50]];

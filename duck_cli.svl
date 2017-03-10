@@ -638,7 +638,7 @@ global function runDuckCLI opt
 	Open opt.moefile;
 
 	local suppFFParams=loadSuppFFParams[];
-	local md_options=['ffParams':[ [], 0 ], 'queue_IN':opt.queue, 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':1,'md_length':0.5,'wqb_thresh':opt.wqbThreshold,'wqb_maxruns':opt.wqbMaxRuns,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
+	local md_options=['ffParams':[ [], 0 ], 'queue_IN':opt.queue, 'input_WS':0 ,'ligand_db':opt.mdbfile,'smd_fc':50,'smd_length':0.5,'smd_displ':2.5,'smd_cutoff':5.0,'equilibration_length':0.5,'md_length':0.5,'wqb_thresh':opt.wqbThreshold,'wqb_maxruns':opt.wqbMaxRuns,'HB_resID':opt.HB_resID,'HB_atomName':opt.HB_atomName];
 	startDB[md_options,suppFFParams];		
     
 endfunction
