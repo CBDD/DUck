@@ -644,7 +644,7 @@ global function runDuckCLI opt
 endfunction
 
 //HOW TO EXECUTE:
-//moebatch -load duck_cli.svl -exec runDuckCLI[moefile:'rec.moe',mdbfile:'small.mdb',queue:'Marc', wqbThreshold:6.0,wqbMaxRuns:10,HB_resID:66,HB_atomName:'N'];
+//moebatch -load duck_cli.svl -exec "runDuckCLI[moefile:'rec.moe',mdbfile:'small.mdb',queue:'Marc', wqbThreshold:6.0,wqbMaxRuns:10,HB_resID:66,HB_atomName:'N']";
 
 #eof
 
