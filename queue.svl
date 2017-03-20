@@ -359,8 +359,7 @@ global function writeDUCKSMDQueue_MINO[options]
         fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
         fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
         fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-        fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
@@ -376,8 +375,7 @@ global function writeDUCKSMDQueue_MINO[options]
         fwrite[fh2,'# @ gpus_per_node = 1              \n\n'];
         fwrite[fh2,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
         fwrite[fh2,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-        fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 
@@ -415,8 +413,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
         fwrite[fh,'fi\n'];
         fwrite[fh,'#############################################################\n'];
-        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
@@ -449,8 +446,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh2,'module load amber12 cuda50 mpich2gnu44\n'];
         fwrite[fh2,'fi\n'];
         fwrite[fh2,'#############################################################\n'];
-        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 
@@ -460,14 +456,12 @@ endfunction
 global function writeDUCKSMDQueue_Workstation[options]
         local currentDir= cd [];
         local fh=fopenw ['duck_template_gpu.sh'];
-        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
         local fh2=fopenw ['duck_template_gpu_325K.sh'];
-        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 
