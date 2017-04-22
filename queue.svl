@@ -100,7 +100,8 @@ global function writeEquilibrationQueue[options]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'qsub md1.q\n'];
 	fwrite[fh,'exit\n'];
@@ -149,17 +150,31 @@ global function writeMDQueue[number,options]
         fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
         fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
         fwrite[fh,'        exit\n'];
-        fwrite[fh,'endif\n'];
+        fwrite[fh,'fi\n'];
         fwrite[fh,'###################################################\n'];
 	if number==1 then
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
-	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+//	  fwrite[fh,'i=0 ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n','{','}'];// SRC deprecated
+          fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
+          fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < {}" | bc) -eq 1 ]; then\n',options.wqb_thresh];
+          fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
+          fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+          fwrite[fh,'        exit\n'];
+          fwrite[fh,'fi\n'];
+          fwrite[fh,'###################################################\n'];
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
 	else 
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
-	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
+//	  fwrite[fh,'i={} ; for f in `ls -1rt md.rst_*`; do ((i++)); mv $f md${}i{}.rst ; done\n',number-1,'{','}']; // SRC deprecated
 	  //fwrite[fh,'qsub md{}.q\n',number+5];
+          fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
+          fwrite[fh,'if [ $(echo "`Rscript ../getWqbValues.R` < {}" | bc) -eq 1 ]; then\n',options.wqb_thresh];
+          fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
+          fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+          fwrite[fh,'        exit\n'];
+          fwrite[fh,'fi\n'];
+          fwrite[fh,'###################################################\n'];
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 300K\n',number,number];
 	  fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 325K\n',number,number];
 	endif
@@ -180,7 +195,8 @@ global function writeEquilibrationWorkstation[]
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'chmod +x ../launch_duck_gpu_Workstation.sh; ../launch_duck_gpu_Workstation.sh 0 0 300K\n'];
 	//fwrite[fh,'../launch_duck_gpu_Workstation.sh 0 0 325K\n'];
 	fwrite[fh,'chmod +x md1.sh; ./md1.sh\n'];
@@ -211,7 +227,8 @@ global function writeEquilibrationQueue_MINO[options]
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_200.in -o eq3_200.out -p lib/system_solv.prmtop -c 2_eq.rst -r 3_eq_200.rst -x 3_eq_200.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_250.in -o eq3_250.out -p lib/system_solv.prmtop -c 3_eq_200.rst -r 3_eq_250.rst -x 3_eq_250.nc -ref lib/system_solv.prmcrd\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 3_eq_300.in -o eq3_300.out -p lib/system_solv.prmtop -c 3_eq_250.rst -r 3_eq_300.rst -x 3_eq_300.nc -ref lib/system_solv.prmcrd\n'];
-	fwrite[fh,'srun pmemd.cuda -O -i 4_eq.in -o eq4.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4_eq.rst -x 4_eq.nc -ref lib/system_solv.prmcrd -e 4_eq.ene\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 4a_eq.in -o eq4a.out -p lib/system_solv.prmtop -c 3_eq_300.rst -r 4a_eq.rst -x 4a_eq.nc -ref lib/system_solv.prmcrd -e 4a_eq.ene\n'];
+	fwrite[fh,'srun pmemd.cuda -O -i 4b_eq.in -o eq4b.out -p lib/system_solv.prmtop -c 4a_eq.rst -r 4b_eq.rst -x 4b_eq.nc -ref lib/system_solv.prmcrd -e 4b_eq.ene\n'];
 	fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 0 300K\n'];
 	fwrite[fh,'mnsubmit md1.q\n'];
 	fwrite[fh,'exit\n'];
@@ -236,7 +253,7 @@ global function writeMDShell_Workstation[number,options]
     //    fwrite[fh,'###################################################\n'];
     //had the comment the previous block as this is not bash, but csh
 	if number==1 then
-	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+	  fwrite[fh,'pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
 	else
 	  fwrite[fh,'pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
 	endif  
@@ -289,21 +306,37 @@ global function writeMDQueue_MINO[number,options]
 	fwrite[fh,'###################################################\n'];
 
 	if number==1 then
-	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4_eq.rst -r md.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
-	  fwrite[fh,'set i = 0\n'];
-	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
-	  fwrite[fh,'@ i = $i + 1 \n'];
-	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
-	  fwrite[fh,'end\n'];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md1.out -p lib/system_solv.prmtop -c 4b_eq.rst -r md1.rst -x md1.nc -ref lib/system_solv.prmcrd\n'];
+//	  fwrite[fh,'set i = 0\n'];
+//SRC	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
+//depre	  fwrite[fh,'@ i = $i + 1 \n'];
+//cated	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
+//	  fwrite[fh,'end\n'];
+	  fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
+	  fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
+	  fwrite[fh,'if ( `echo "$res < {}" | bc` == 1 ) then;\n',options.wqb_thresh];
+	  fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
+	  fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+	  fwrite[fh,'        exit\n'];
+	  fwrite[fh,'endif\n'];
+	  fwrite[fh,'###################################################\n'];
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh 1 1 300K\n'];
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh 0 1 325K\n'];
 	else 
-	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number];
-	  fwrite[fh,'set i = {}\n',number-1];
-	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
-	  fwrite[fh,'@ i = $i + 1 \n'];
-	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
-	  fwrite[fh,'end\n'];
+	  fwrite[fh,'srun pmemd.cuda -O -i md.in -o md{}.out -p lib/system_solv.prmtop -c md{}.rst -r md{}.rst -x md{}.nc -ref lib/system_solv.prmcrd\n',number,number-1,number,number];
+//SRC	  fwrite[fh,'set i = {}\n',number-1];
+//depre	  fwrite[fh,'foreach f ( `ls -1rt md.rst_*` )\n'];
+//cated	  fwrite[fh,'@ i = $i + 1 \n'];
+//	  fwrite[fh,'mv $f md${}i{}.rst\n','{','}'];
+//	  fwrite[fh,'end\n'];
+	  fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
+      	  fwrite[fh,'set res=`Rscript ../getWqbValues.R`;\n'];
+    	  fwrite[fh,'if ( `echo "$res < {}" | bc` == 1 ) then;\n',options.wqb_thresh];
+	  fwrite[fh,'        echo Wqb lower than {}, stopping DUck runs;\n',options.wqb_thresh];
+	  fwrite[fh,'        Rscript ../getWqbValues.R plot;\n'];
+	  fwrite[fh,'        exit\n'];
+	  fwrite[fh,'endif\n'];
+	  fwrite[fh,'###################################################\n'];
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 300K\n',number,number];
           fwrite[fh,'csh ../submit_duck_smd_gpu.csh {} {} 325K\n',number,number];
 	endif
@@ -326,8 +359,7 @@ global function writeDUCKSMDQueue_MINO[options]
         fwrite[fh,'# @ gpus_per_node = 1              \n\n'];
         fwrite[fh,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
         fwrite[fh,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-        fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
@@ -343,8 +375,7 @@ global function writeDUCKSMDQueue_MINO[options]
         fwrite[fh2,'# @ gpus_per_node = 1              \n\n'];
         fwrite[fh2,'module load intel/14.0.1 mkl/11.1 cuda/5.0 AMBER/14 R\n'];
         fwrite[fh2,'#setenv PATH $AMBERHOME/bin4.1:$PATH \n'];
-        fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 
@@ -382,8 +413,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh,'module load amber12 cuda50 mpich2gnu44\n'];
         fwrite[fh,'fi\n'];
         fwrite[fh,'#############################################################\n'];
-        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
@@ -416,8 +446,7 @@ global function writeDUCKSMDQueue[options]
         fwrite[fh2,'module load amber12 cuda50 mpich2gnu44\n'];
         fwrite[fh2,'fi\n'];
         fwrite[fh2,'#############################################################\n'];
-        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 
@@ -427,14 +456,12 @@ endfunction
 global function writeDUCKSMDQueue_Workstation[options]
         local currentDir= cd [];
         local fh=fopenw ['duck_template_gpu.sh'];
-        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh,'gzip duck_ZZ.e\n'];
+        fwrite[fh,'pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh,'exit\n'];
         fclose fh;
 
         local fh2=fopenw ['duck_template_gpu_325K.sh'];
-        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -r duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
-        fwrite[fh2,'gzip duck_ZZ.e\n'];
+        fwrite[fh2,'pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
         fwrite[fh2,'exit\n'];
         fclose fh2;
 

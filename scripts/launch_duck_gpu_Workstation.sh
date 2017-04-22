@@ -15,7 +15,7 @@ do
 		sed 's/ZZ/'$nu'/g' ../duck_template_gpu.sh > ./${dir}/duck_${nu}.sh;
 		if [ ${nu} -eq 0 ]
 		then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_${nu}.sh > tmp
+			sed 's/md'$nu'.rst/4b_eq.rst/g' ./${dir}/duck_${nu}.sh > tmp
 			mv tmp ./${dir}/duck_${nu}.sh
 		fi
 		cd $dir; chmod +x duck_${nu}.sh; ./duck_${nu}.sh; cd ..;
@@ -26,7 +26,7 @@ do
 		sed 's/ZZ/'$nu'/g' ../duck_template_gpu_325K.sh > ./${dir}/duck_325K_${nu}.sh;
 		if [ ${nu} -eq 0 ]
 		then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_325K_${nu}.sh > tmp
+			sed 's/md'$nu'.rst/4b_eq.rst/g' ./${dir}/duck_325K_${nu}.sh > tmp
 			mv tmp ./${dir}/duck_325K_${nu}.sh
 		fi
 		cd $dir; chmod +x duck_325K_${nu}.sh; ./duck_325K_${nu}.sh; cd ..;

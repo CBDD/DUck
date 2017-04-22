@@ -13,7 +13,7 @@ while ($nu <= $nuend)
 		mkdir $dir
 		sed 's/ZZ/'$nu'/g' duck_template_gpu.q > ./${dir}/duck_${nu}.q
 		if ($nu == 0) then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_${nu}.q > tmp
+			sed 's/md'$nu'.rst/4b_eq.rst/g' ./${dir}/duck_${nu}.q > tmp
 			mv tmp ./${dir}/duck_${nu}.q
 		endif
 		cd $dir; mnsubmit duck_${nu}.q; cd ..
@@ -23,7 +23,7 @@ while ($nu <= $nuend)
 		mkdir $dir
 		sed 's/ZZ/'$nu'/g' duck_template_gpu_325K.q > ./${dir}/duck_325K_${nu}.q
 		if ($nu == 0) then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_325K_${nu}.q > tmp
+			sed 's/md'$nu'.rst/4b_eq.rst/g' ./${dir}/duck_325K_${nu}.q > tmp
 			mv tmp ./${dir}/duck_325K_${nu}.q
 		endif
 		cd $dir; mnsubmit duck_325K_${nu}.q; cd ..

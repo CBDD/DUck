@@ -332,10 +332,10 @@ local function startDB[options,suppFFParams]
 	//copy some important launch and analysis scripts 
 
 	JPATH = getenv 'MOE_SVL_LOAD';
-    SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
-	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
+    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
+	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
+	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
+	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 
         if options.queue_IN === 'Minotauro' then
         	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
@@ -381,11 +381,12 @@ local function startDB[options,suppFFParams]
 //		writeAmberLaunchScripts options;
 //	endif
 ////SRC MINO queue end
+	local molCount_mopacError=0; //SRC define for MOPAC error
+        local fh_MOPAC_created=0; //SRC define for MOPAC
 	for entry in entries loop
 		Open tmpName;
 		local msgKey=Message[0,tok_cat['Preparing simulations for molecule ',totok molCount]];
 		local protein=cat oAtoms Chains[];
-
 		local ligand=mol_Create first db_ReadFields [mdb,entry,molfield];
 
 //		local ligandName=first first ligand;
@@ -410,11 +411,33 @@ local function startDB[options,suppFFParams]
 			rSetName[el,'LIG'];
 			local ligAtoms=cat oAtoms el;
 
+//SRC MOPAC ERROR
+                        local flag_mopacError = 0;
+                        local [result,return_code] = task_call['PartialCharge',[ligAtoms, 'AM1-BCC'],[errmsg:'ignore']];
+                        if return_code == 'error' then
+                                flag_mopacError=1;
+                        else
+                                local q=first result;
+                                aSetCharge [ligAtoms,q];
+                        endif
+                endloop
+
+                if flag_mopacError == 1 then
+                        print 'Error calculating charges, skipping ligand.';
+                        if molCount_mopacError == 0 then
+                                fh_MOPAC_created=1;
+                                local fh_MOPAC;
+                                fh_MOPAC = fopenw twrite['DUCK_charge_errors.txt','./'];   //open file handle
+                                molCount_mopacError = 1;
+                        endif;
+                        fwrite [fh_MOPAC,'LIG_target_{}\n',molCount];
+                        molCount = molCount+1;
+                        Close[force:1];
+                        Message[msgKey,[]];
+                        continue;
+                endif;
+//SRC MOPAC ERROR end
 			
-			local [q, pos] = PartialCharge [ligAtoms, 'AM1-BCC'];
-			aSetCharge [ligAtoms,q];
-		endloop
-		
 		local fileList=fbase ftail flist '.';
 		//create folder name for writing simulation parameters
 		local ligandDirName=tok_cat['LIG_target_',totok molCount];
@@ -464,6 +487,9 @@ local function startDB[options,suppFFParams]
 		Message[msgKey,[]];	
 		
 	endloop
+        if fh_MOPAC_created == 1 then
+                fclose[fh_MOPAC];
+        endif;
 	db_Close mdb;
 endfunction
 

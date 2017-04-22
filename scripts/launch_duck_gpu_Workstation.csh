@@ -13,7 +13,7 @@ while ($nu <= $nuend)
 		mkdir $dir
 		sed 's/ZZ/'$nu'/g' ../duck_template_gpu.sh > ./${dir}/duck_${nu}.sh
 		if ($nu == 0) then
-			sed 's/md'$nu'.rst/4_eq.rst/g' ./${dir}/duck_${nu}.sh > tmp
+			sed 's/md'$nu'.rst/4b_eq.rst/g' ./${dir}/duck_${nu}.sh > tmp
 			mv tmp ./${dir}/duck_${nu}.sh
 		endif
 		cd $dir; chmod +x duck_${nu}.sh; ./duck_${nu}.sh; cd ..
