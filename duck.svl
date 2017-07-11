@@ -331,8 +331,8 @@ local function startDB[options,suppFFParams]
 	Close[force:1];
 	//copy some important launch and analysis scripts 
 
-	JPATH = getenv 'MOE_SVL_LOAD';
-    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
+	JPATH = getenv 'HOME';
+    	SCRIPTSPATH = tok_cat [ JPATH , '/moefiles/svl/scripts'];
 	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
 	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
@@ -455,7 +455,8 @@ local function startDB[options,suppFFParams]
 		    print curPos-aPos Atoms[];
 		    receptorSelection=cat [receptorSelection,a[x_min app add tr abs(curPos-aPos Atoms[])]]; //instead of selecting add it to a set
 		endloop
-		
+		print "receptorSelection";
+		print receptorSelection;
 		local ligandSelection=[];
 		local receptorCOM=oCenterOfMass receptorSelection;	//calculate center of mass of receptor selection
 		
@@ -639,8 +640,10 @@ endfunction
 
 global function DuckPanel opt
     
-    JPATH = getenv 'MOE_SVL_LOAD';
-    FFPATH = tok_cat [ JPATH , '/tleap'];
+    JPATH = getenv 'HOME';
+    FFPATH = tok_cat [ JPATH , '/moefiles/svl/tleap'];
+    print FFPATH;
+    
     if MOE_BATCH then return[]; endif
     if second task_fork[] <> 'child' then return; endif
     task_settitle[-1,'DUck Configuration'];
@@ -946,7 +949,7 @@ global function DuckPanel opt
 	elseif trig == 'panel' and (vals.(trig) == PANEL_TEXT_RUN(RUN_IDX)) then
 
 		//check if the user selected 1 atom
-		if length SelectedAtoms[]===1 then
+		//if length SelectedAtoms[]===1 then
 
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
@@ -956,18 +959,20 @@ global function DuckPanel opt
 			print md_options;
 			print md_options.ligand_db;
 
-			startDB[md_options,suppFFParams];
-			
+			//startDB[md_options,suppFFParams];
 			//commented this here as duck is always used for a mdb
-			//if length(md_options.ligand_db) > 0 then
-			//  startDB[md_options,suppFFParams];
-			//else
-			//  startMD[ligand,md_options,suppFFParams];
-			//endif
-		else
-			Warning 'You did not select the receptor atom used to define the reaction coordinate of DUck. Please click on the atom you want to investigate';
+			//uncommented for debugging purposes
+			if length(md_options.ligand_db) > 0 then
+			  startDB[md_options,suppFFParams];
+			  print 'on DB';
+			else
+			  startMD[ligand,md_options,suppFFParams];
+			  print 'on structure';
+			endif
+		//else
+		//	Warning 'You did not select the receptor atom used to define the reaction coordinate of DUck. Please click on the atom you want to investigate';
 
-		endif
+//		endif
 		
 		WindowSetAttr[wkey, ['systemDB' :[sensitive:1]]];
 		
