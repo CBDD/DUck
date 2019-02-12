@@ -238,7 +238,9 @@ global function writeEquilibrationQueue_SLURM[options]
 	fwrite[fh,'#SBATCH --output=equil.q.o         \n'];
 	fwrite[fh,'#SBATCH --error=equil.q.e          \n'];
 	fwrite[fh,'#SBATCH --ntasks=1                 \n'];
-	fwrite[fh,'#SBATCH --gres=gpu:1             \n\n'];
+	fwrite[fh,'#SBATCH --gres=gpu:1               \n'];
+	fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+	fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
 	fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
 	fwrite[fh,'module load python R amber/16\n'];
 	fwrite[fh,'srun pmemd.cuda -O -i 1_min.in -o min.out -p lib/system_solv.prmtop -c lib/system_solv.prmcrd -r min.rst -ref lib/system_solv.prmcrd\n'];
@@ -341,6 +343,8 @@ global function writeMDQueue_SLURM[number,options]
 	fwrite[fh,'#SBATCH --error=md.q.e          \n'];
 	fwrite[fh,'#SBATCH --ntasks=1                 \n'];
 	fwrite[fh,'#SBATCH --gres=gpu:1              \n\n'];
+	fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+	fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
 	fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
 	fwrite[fh,'module load python R amber/16\n'];
 	fwrite[fh,'######BLOCK TO CHECK IF WQB IS LOWER THAN {}########\n',options.wqb_thresh];
@@ -470,6 +474,8 @@ global function writeDUCKSMDQueue_SLURM[options]
         fwrite[fh,'#SBATCH --error=duck_ZZ.q.e      \n'];
         fwrite[fh,'#SBATCH --ntasks=1               \n'];
         fwrite[fh,'#SBATCH --gres=gpu:1             \n\n'];
+        fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+		fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
         fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
         fwrite[fh,'module load python R amber/16\n'];
         fwrite[fh,'srun pmemd.cuda -O -i ../duck.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
@@ -485,6 +491,8 @@ global function writeDUCKSMDQueue_SLURM[options]
         fwrite[fh2,'#SBATCH --error=duck_ZZ.q.e         \n'];
         fwrite[fh2,'#SBATCH --ntasks=1                  \n'];
         fwrite[fh2,'#SBATCH --gres=gpu:1                \n\n'];
+        fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+		fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
         fwrite[fh2,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
         fwrite[fh2,'module load python R amber/16\n'];
         fwrite[fh2,'srun pmemd.cuda -O -i ../duck_325K.in -o duck_ZZ.o -p ../lib/system_solv.prmtop -c ../mdZZ.rst -r duck_ZZ.rst -x duck_ZZ.nc -e duck_ZZ.e -ref ../lib/system_solv.prmcrd\n'];
