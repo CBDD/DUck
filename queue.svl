@@ -239,7 +239,7 @@ global function writeEquilibrationQueue_SLURM[options]
 	fwrite[fh,'#SBATCH --error=equil.q.e          \n'];
 	fwrite[fh,'#SBATCH --ntasks=1                 \n'];
 	fwrite[fh,'#SBATCH --gres=gpu:1               \n'];
-	fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+	fwrite[fh,'#SBATCH --cpus-per-task=40       \n\n'];
 	fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
 	fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
 	fwrite[fh,'module load python R amber/16\n'];
@@ -343,7 +343,7 @@ global function writeMDQueue_SLURM[number,options]
 	fwrite[fh,'#SBATCH --error=md.q.e          \n'];
 	fwrite[fh,'#SBATCH --ntasks=1                 \n'];
 	fwrite[fh,'#SBATCH --gres=gpu:1              \n\n'];
-	fwrite[fh,'#SBATCH --cpu-per-task=40        \n\n'];
+	fwrite[fh,'#SBATCH --cpus-per-task=40       \n\n'];
 	fwrite[fh,'set OPM_NUM_THREADS=1            \n\n'];
 	fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
 	fwrite[fh,'module load python R amber/16\n'];
@@ -474,7 +474,7 @@ global function writeDUCKSMDQueue_SLURM[options]
         fwrite[fh,'#SBATCH --error=duck_ZZ.q.e      \n'];
         fwrite[fh,'#SBATCH --ntasks=1               \n'];
         fwrite[fh,'#SBATCH --gres=gpu:1             \n'];
-        fwrite[fh,'#SBATCH --cpu-per-task=40      \n\n'];
+        fwrite[fh,'#SBATCH --cpus-per-task=40     \n\n'];
 		fwrite[fh,'set OPM_NUM_THREADS=1          \n\n'];
         fwrite[fh,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
         fwrite[fh,'module load python R amber/16\n'];
@@ -491,7 +491,7 @@ global function writeDUCKSMDQueue_SLURM[options]
         fwrite[fh2,'#SBATCH --error=duck_ZZ.q.e         \n'];
         fwrite[fh2,'#SBATCH --ntasks=1                  \n'];
         fwrite[fh2,'#SBATCH --gres=gpu:1                \n'];
-        fwrite[fh2,'#SBATCH --cpu-per-task=40         \n\n'];
+        fwrite[fh2,'#SBATCH --cpus-per-task=40        \n\n'];
 		fwrite[fh2,'set OPM_NUM_THREADS=1             \n\n'];
         fwrite[fh2,'source /apps/modules/LMOD/7.7/lmod/7.7/init/tcsh\n'];
         fwrite[fh2,'module load python R amber/16\n'];
