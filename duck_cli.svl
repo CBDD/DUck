@@ -24,7 +24,7 @@
 
 #set title	'Dynamic UndoCKing'
 #set class	'MOE:simulation'
-#set version	'2017.01'
+#set version	'2018.11'
 
 #set main	'runDuck' 
 
@@ -44,8 +44,10 @@ function launchAmber;
 //SRC MINO
 function writeAmberLaunchScripts;
 function launchAmber_MINO;
+function launchAmber_SLURM;
 function launchAmber_Workstation;
 function writeAmberLaunchScripts_MINO;
+function writeAmberLaunchScripts_SLURM;
 function my_fwrite_PDB;
 function MM;
 function PartialCharge;
@@ -131,9 +133,11 @@ local function writeDoLeap[ligand,dirName,options,suppFFParams,lenRec,solvation]
 	endif
 	print options.ffParams;
 	//please leave both options here so in any case we retain compatibility between old amber versions and newer ones
-	fwrite [fh,'source oldff/leaprc.ff99SBildn\n'];
-	fwrite [fh,'source leaprc.ff99SBildn\n'];
-	fwrite [fh,'loadOff ions94.lib\n'];
+//	fwrite [fh,'source oldff/leaprc.ff99SBildn\n'];
+//	fwrite [fh,'source leaprc.ff99SBildn\n'];
+	fwrite [fh,'source oldff/leaprc.ff14SB\n'];
+	fwrite [fh,'source leaprc.water.tip3p\n'];
+//	fwrite [fh,'loadOff ions94.lib\n'];
 
 	if length options.ffParams[1]>0 then
 		local el;
@@ -334,6 +338,9 @@ local function startDB[options,suppFFParams]
         if options.queue_IN === 'Minotauro' then
         	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
         endif
+        if options.queue_IN === 'SLURM' then
+        	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_SLURM.csh'], 'submit_duck_smd_gpu.csh'];
+        endif
         if options.queue_IN === 'Marc' then
                 rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MARC.csh'], 'submit_duck_smd_gpu.csh'];
         endif
@@ -370,6 +377,9 @@ local function startDB[options,suppFFParams]
 //	print options.queue_IN;
 //	if options.queue_IN === 'Minotauro' then
 //		writeAmberLaunchScripts_MINO options;
+//	endif
+// if options.queue_IN === 'SLURM' then
+//		writeAmberLaunchScripts_SLURM options;
 //	endif
 //	if options.queue_IN === 'Marc' then 
 //		writeAmberLaunchScripts options;
@@ -456,7 +466,10 @@ local function startDB[options,suppFFParams]
 		local receptorCOM=oCenterOfMass receptorSelection;	//calculate center of mass of receptor selection
 		
 		local ligand_atoms = a | rName aResidue a == 'LIG';
-		ligand_atoms=ligand_atoms | aAtomicNumber ligand_atoms <> 1;	//get only heavy atoms
+		//ligand_atoms=ligand_atoms | aAtomicNumber ligand_atoms <> 1;	//get only heavy atoms
+		local m1 = aAtomicNumber ligand_atoms <> 1;
+        local m2 = aAtomicNumber ligand_atoms <> 6;
+        ligand_atoms=ligand_atoms | m1*m2;      // get only non-hydrogen and non-carbon atom
 
 		local distances=cat sqrt add pow[tr(tr aPos ligand_atoms - [receptorCOM]),2];
 		// by default now use closest atom on ligand
@@ -591,6 +604,14 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 	if options.queue_IN === 'Minotauro' then
 		if ret==0 then
 			launchAmber_MINO options;
+		else
+			sleep 3;
+			Message[ret,''];
+		endif
+	endif
+	if options.queue_IN === 'SLURM' then
+		if ret==0 then
+			launchAmber_SLURM options;
 		else
 			sleep 3;
 			Message[ret,''];

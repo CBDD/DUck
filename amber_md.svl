@@ -37,7 +37,7 @@ local function writeFirstEquilibration[path,nRes]
 	
 	local fh=fopenw '2_eq.in';
 	fwrite[fh,'&cntrl\n'];
-	fwrite[fh,'timlim=999999., imin=0,\n'];
+	fwrite[fh,'imin=0,\n'];
 	fwrite[fh,'ntx=1, \n'];
 	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntp=0, ntc=2,\n'];
@@ -69,7 +69,7 @@ local function writeSecondEquilibration[path,nRes,temperature]
 	local fh=fopenw tok_cat['3_eq_',totok temperature,'.in'];
 	
 	fwrite[fh,'&cntrl\n'];
-	fwrite[fh,'timlim=999999., imin=0,\n'];
+	fwrite[fh,'imin=0,\n'];
 	fwrite[fh,'ntx=5, irest=1,\n'];
 	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
 	fwrite[fh,'ntp=0, ntc=2,\n'];
@@ -103,7 +103,7 @@ local function writeThirdEquilibration[path,nRes,simlength]
 	local fhA=fopenw tok_cat['4a_eq.in'];
 
         fwrite[fhA,'&cntrl\n'];
-        fwrite[fhA,'timlim=999999., imin=0,\n'];
+        fwrite[fhA,'imin=0,\n'];
         fwrite[fhA,'ntx=5, irest=1,\n'];
         fwrite[fhA,'iwrap=1,\n'];
         fwrite[fhA,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
@@ -123,7 +123,7 @@ local function writeThirdEquilibration[path,nRes,simlength]
 	local fh=fopenw tok_cat['4b_eq.in'];
 	
 	fwrite[fh,'&cntrl\n'];
-	fwrite[fh,'timlim=999999., imin=0,\n'];
+	fwrite[fh,'imin=0,\n'];
 	fwrite[fh,'ntx=5, irest=1,\n'];
 	fwrite[fh,'iwrap=1,\n'];
 	fwrite[fh,'ntxo=1, ntpr=2000, ntwx=0, ntwv=0, ntwe=0, ntwr=0, ioutfm=1,\n'];
