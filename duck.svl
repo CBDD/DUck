@@ -24,7 +24,7 @@
 
 #set title	'Dynamic UndoCKing'
 #set class	'MOE:simulation'
-#set version	'2016.09'
+#set version	'2018.11'
 
 #set main	'DuckPanel' 
 
@@ -44,11 +44,13 @@ function fwrite_AmberMOL2;
 function export2FRCMod;
 function writeAmberInputs;
 function launchAmber;
-//SRC MINO
+//SRC 
 function writeAmberLaunchScripts;
+function launchAmber_SLURM;
 function launchAmber_MINO;
 function launchAmber_Workstation;
 function writeAmberLaunchScripts_MINO;
+function writeAmberLaunchScripts_SLURM;
 function my_fwrite_PDB;
 function MM;
 function PartialCharge;
@@ -154,9 +156,14 @@ local function writeDoLeap[ligand,dirName,options,suppFFParams,lenRec,solvation]
 	    fh=fopenw twrite['{}/doleaped.leap',dirName];	//open file handle
 	endif
 	print options.ffParams;
-	fwrite [fh,'source oldff/leaprc.ff99SBildn\n'];
-	fwrite [fh,'source leaprc.ff99SBildn\n'];
-	fwrite [fh,'loadOff ions94.lib\n'];
+	
+	//please leave both options here so in any case we retain compatibility between old amber versions and newer ones
+	fwrite [fh,'source oldff/leaprc.ff14SB\n'];
+        fwrite [fh,'source leaprc.water.tip3p\n'];
+
+	//fwrite [fh,'source oldff/leaprc.ff99SBildn\n'];
+	//fwrite [fh,'source leaprc.ff99SBildn\n'];
+	//fwrite [fh,'loadOff ions94.lib\n'];
 
 	if length options.ffParams[1]>0 then
 		local el;
@@ -331,14 +338,17 @@ local function startDB[options,suppFFParams]
 	Close[force:1];
 	//copy some important launch and analysis scripts 
 
-	JPATH = getenv 'HOME';
-    	SCRIPTSPATH = tok_cat [ JPATH , '/moefiles/svl/scripts'];
+	JPATH = getenv 'MOE_SVL_LOAD';
+    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
 	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
 	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
 
         if options.queue_IN === 'Minotauro' then
         	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MINO.csh'], 'submit_duck_smd_gpu.csh'];
+        endif
+        if options.queue_IN === 'SLURM' then
+        	rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_SLURM.csh'], 'submit_duck_smd_gpu.csh'];
         endif
         if options.queue_IN === 'Marc' then
                 rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/submit_duck_smd_gpu_MARC.csh'], 'submit_duck_smd_gpu.csh'];
@@ -371,16 +381,19 @@ local function startDB[options,suppFFParams]
 	local molCount=1;
 
 //removed for avoiding writing q files in main folder
-////SRC MINO queue in
+////SRC CTE queue in
 //	//writeAmberLaunchScripts options;
 //	print options.queue_IN;
 //	if options.queue_IN === 'Minotauro' then
 //		writeAmberLaunchScripts_MINO options;
 //	endif
+//	if options.queue_IN === 'SLURM' then
+//		writeAmberLaunchScripts_SLURM options;
+//	endif
 //	if options.queue_IN === 'Marc' then 
 //		writeAmberLaunchScripts options;
 //	endif
-////SRC MINO queue end
+////SRC CTE queue end
 	local molCount_mopacError=0; //SRC define for MOPAC error
         local fh_MOPAC_created=0; //SRC define for MOPAC
 	for entry in entries loop
@@ -455,14 +468,15 @@ local function startDB[options,suppFFParams]
 		    print curPos-aPos Atoms[];
 		    receptorSelection=cat [receptorSelection,a[x_min app add tr abs(curPos-aPos Atoms[])]]; //instead of selecting add it to a set
 		endloop
-		print "receptorSelection";
-		print receptorSelection;
+		
 		local ligandSelection=[];
 		local receptorCOM=oCenterOfMass receptorSelection;	//calculate center of mass of receptor selection
 		
 		local ligand_atoms = a | rName aResidue a == 'LIG';
-		ligand_atoms=ligand_atoms | aAtomicNumber ligand_atoms <> 1;	//get only heavy atoms
-
+		//ligand_atoms=ligand_atoms | aAtomicNumber ligand_atoms <> 1;	//get only heavy atoms
+		local m1 = aAtomicNumber ligand_atoms <> 1;
+		local m2 = aAtomicNumber ligand_atoms <> 6; // get only non-hydrogen and non-carbon atoms
+		ligand_atoms=ligand_atoms | m1*m2;
 		local distances=cat sqrt add pow[tr(tr aPos ligand_atoms - [receptorCOM]),2];
 		// by default now use closest atom on ligand
 		ligandSelection=ligand_atoms[x_min distances];
@@ -592,10 +606,18 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 //	endif
 /////
 
-//SRC MINO or Marc queues
+//SRC CTE or Marc queues
 	if options.queue_IN === 'Minotauro' then
 		if ret==0 then
 			launchAmber_MINO options;
+		else
+			sleep 3;
+			Message[ret,''];
+		endif
+	endif
+	if options.queue_IN === 'SLURM' then
+		if ret==0 then
+			launchAmber_SLURM options;
 		else
 			sleep 3;
 			Message[ret,''];
@@ -615,7 +637,7 @@ local function startMD[ligand,options,suppFFParams,ligandSelection,receptorSelec
 		local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/launch_duck_gpu_Workstation.sh'], '../launch_duck_gpu_Workstation.sh'];
 		launchAmber_Workstation options;
 	endif
-//SRC MINO or Marc queues end
+//SRC CTE or Marc queues end
 endfunction
 
 
@@ -640,10 +662,8 @@ endfunction
 
 global function DuckPanel opt
     
-    JPATH = getenv 'HOME';
-    FFPATH = tok_cat [ JPATH , '/moefiles/svl/tleap'];
-    print FFPATH;
-    
+    JPATH = getenv 'MOE_SVL_LOAD';
+    FFPATH = tok_cat [ JPATH , '/tleap'];
     if MOE_BATCH then return[]; endif
     if second task_fork[] <> 'child' then return; endif
     task_settitle[-1,'DUck Configuration'];
@@ -713,7 +733,7 @@ global function DuckPanel opt
 		    extendH: 1,
 		    flushLeft	: 1,
 	    	Label	: [ text:
-			'Choose between queue input for "Marc" (SGE) or for "Minotauro" (SLURM).\n',
+			'Choose between queue input for "Marc" (SGE), for "Minotauro" or for "SLURM".\n',
 			flushLeft	: 1
 	    	
 	    	
@@ -723,7 +743,7 @@ global function DuckPanel opt
 		    	Radio :[
 		    		name : 'queue_IN',
 		    		title : 'Choose where to run the MD jobs:',
-				text:['Marc', 'Minotauro'],
+				text:['Marc', 'Minotauro', 'SLURM'],
 		    		bubbleHelp:'Choose where to run the MD jobs.\n'
 		    	]
 			],
@@ -949,7 +969,7 @@ global function DuckPanel opt
 	elseif trig == 'panel' and (vals.(trig) == PANEL_TEXT_RUN(RUN_IDX)) then
 
 		//check if the user selected 1 atom
-		//if length SelectedAtoms[]===1 then
+		if length SelectedAtoms[]===1 then
 
 		    WindowSetAttr[wkey, [[trig,[sensitive:PANEL_INSENSITIVE,
 			text:PANEL_TEXT_RUN]]]];
@@ -959,20 +979,18 @@ global function DuckPanel opt
 			print md_options;
 			print md_options.ligand_db;
 
-			//startDB[md_options,suppFFParams];
+			startDB[md_options,suppFFParams];
+			
 			//commented this here as duck is always used for a mdb
-			//uncommented for debugging purposes
-			if length(md_options.ligand_db) > 0 then
-			  startDB[md_options,suppFFParams];
-			  print 'on DB';
-			else
-			  startMD[ligand,md_options,suppFFParams];
-			  print 'on structure';
-			endif
-		//else
-		//	Warning 'You did not select the receptor atom used to define the reaction coordinate of DUck. Please click on the atom you want to investigate';
+			//if length(md_options.ligand_db) > 0 then
+			//  startDB[md_options,suppFFParams];
+			//else
+			//  startMD[ligand,md_options,suppFFParams];
+			//endif
+		else
+			Warning 'You did not select the receptor atom used to define the reaction coordinate of DUck. Please click on the atom you want to investigate';
 
-//		endif
+		endif
 		
 		WindowSetAttr[wkey, ['systemDB' :[sensitive:1]]];
 		
