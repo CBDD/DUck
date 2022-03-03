@@ -320,13 +320,9 @@ local function startDB[options,suppFFParams]
 	
 	Close[force:1];
 	//copy some important launch and analysis scripts 
-//SRC moe2016
-	JPATH = getenv 'HOME';
-        FFPATH = tok_cat [ JPATH , '/moefiles/svl/tleap'];
-        SCRIPTSPATH = tok_cat [ JPATH , '/moefiles/svl/scripts'];
-	//JPATH = getenv 'MOE_SVL_LOAD';
-    	//SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
-//SRC end
+
+	JPATH = getenv 'MOE_SVL_LOAD';
+    	SCRIPTSPATH = tok_cat [ JPATH , '/scripts'];
 	//local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_gpu.sh'], 'duck_template_gpu.sh'];
 	//rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/duck_template_325K_gpu.sh'], 'duck_template_325K_gpu.sh'];
 	local rcode = _fcopy [tok_cat [ SCRIPTSPATH,'/getWqbValues.R'], 'getWqbValues.R'];
@@ -637,13 +633,8 @@ endfunction
 //moefile: input receptor file with one selected atom
 //mdbfile: input mdb with all ligands
 global function runDuckCLI opt
-//SRC moe 2016
-	JPATH = getenv 'HOME';
-        FFPATH = tok_cat [ JPATH , '/moefiles/svl/tleap'];
-        SCRIPTSPATH = tok_cat [ JPATH , '/moefiles/svl/scripts'];
-    	//JPATH = getenv 'MOE_SVL_LOAD';
-    	//FFPATH = tok_cat [ JPATH , '/tleap'];
-//SRC end
+    JPATH = getenv 'MOE_SVL_LOAD';
+    FFPATH = tok_cat [ JPATH , '/tleap'];
 	Open opt.moefile;
 
 	local suppFFParams=loadSuppFFParams[];
