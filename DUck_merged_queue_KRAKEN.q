@@ -58,7 +58,7 @@ check_WQB(){
    are_we_above_the_limit=$(echo "$lowest_wqb < $wqb_limit" | bc )
    if [ "$are_we_above_the_limit" == "1" ]; then
       echo "Wqb lower than ${wqb_limit}, stoping DUck run"
-      cp -r ./* $LIG_TARGET/
+      #cp -r ./* $LIG_TARGET/
       exit 
    fi
 }
